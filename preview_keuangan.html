@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Preview — Keuangan | Apotek POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-bridge.js"></script>
+<script>
+tailwind.config = { darkMode:'class', theme:{ extend:{ fontFamily:{ mono:['Fira Code','Consolas','monospace'], sans:['Fira Sans','Inter','system-ui','sans-serif'] }, colors:{ primary:'#15803D', secondary:'#22C55E', accent:'#0369A1', surface:'#F0FDF4', 'text-primary':'#14532D', 'text-secondary':'#166534', 'dashboard-gray':'#F4F5F7', 'orange-accent':'#FF5A1F' } } } }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  .card-shadow { box-shadow:0 4px 6px -1px rgba(0,0,0,0.05),0 2px 4px -1px rgba(0,0,0,0.03); }
+  .dark .card-shadow { box-shadow:0 4px 6px -1px rgba(0,0,0,0.5); }
+  .row-hover:hover { background:#f9fafb; } .dark .row-hover:hover { background:#1f2937; }
+  .nav-active { background:#111827; color:#fff; } .dark .nav-active { background:#FF5A1F; color:#fff; }
+  .kpi-card { transition:all 150ms ease; } .kpi-card:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.08); }
+</style>
+<script>
+function toggleDarkMode(){document.documentElement.classList.toggle('dark');localStorage.setItem('theme',document.documentElement.classList.contains('dark')?'dark':'light');}
+if(localStorage.theme==='dark'||(!('theme'in localStorage)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');
+</script>
+</head>
+<body class="bg-dashboard-gray dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors">
+
+<header class="sticky top-0 z-40 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 card-shadow">
+  <div class="flex items-center gap-3"><span class="text-lg font-bold text-primary font-mono">💊 ApotekPOS</span><span class="text-sm font-medium">Keuangan</span></div>
+  <div class="flex items-center gap-3">
+    <button onclick="toggleDarkMode()" class="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-sm">🌓</button>
+    <span class="text-xs text-gray-500">Outlet Pusat · Admin</span>
+    <div class="w-8 h-8 rounded-full bg-orange-accent flex items-center justify-center text-white text-sm font-bold">A</div>
+  </div>
+</header>
+
+<div class="flex h-[calc(100vh-56px)]">
+  <aside class="w-56 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col py-2">
+    <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Keuangan</div>
+    <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-active flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium transition cursor-pointer">📊 Dashboard</button>
+    <button onclick="switchTab('jurnal')" id="nav-jurnal" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-900 transition cursor-pointer">📒 Jurnal</button>
+    <button onclick="switchTab('laporan')" id="nav-laporan" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-900 transition cursor-pointer">📈 Laporan</button>
+    <hr class="my-3 mx-3 border-gray-100">
+    <a href="unified_home.html" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 transition cursor-pointer"></a>
+  </aside>
+
+  <main class="flex-1 overflow-y-auto p-6">
+
+    <!-- TAB: DASHBOARD -->
+    <div id="tab-dashboard">
+      <h1 class="text-xl font-bold mb-4">📊 Dashboard Keuangan</h1>
+      <div class="grid grid-cols-4 gap-3 mb-6">
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500">Pendapatan Hari Ini</p><p class="text-2xl font-bold font-mono text-primary" id="kpi-revenue">Rp 0</p></div>
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500">HPP Hari Ini</p><p class="text-2xl font-bold font-mono text-red-600" id="kpi-hpp">Rp 0</p></div>
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500">Laba Kotor</p><p class="text-2xl font-bold font-mono text-secondary" id="kpi-profit">Rp 0</p></div>
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500">Hutang Supplier</p><p class="text-2xl font-bold font-mono text-amber-600" id="kpi-debt">Rp 0</p></div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow">
+          <h3 class="font-semibold mb-3">💰 Arus Kas Hari Ini</h3>
+          <div id="cashflow-chart" class="space-y-2"></div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow">
+          <h3 class="font-semibold mb-3">📋 Transaksi Terakhir</h3>
+          <div id="recent-txns" class="space-y-2 max-h-64 overflow-y-auto"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: JURNAL -->
+    <div id="tab-jurnal" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">📒 Jurnal Umum</h1><p class="text-sm text-gray-500">Catatan debit/kredit otomatis dari transaksi</p></div>
+        <button onclick="openJurnalForm()" class="px-4 py-2 bg-orange-accent text-white rounded-lg text-sm font-bold hover:bg-orange-700 card-shadow">+ Entri Manual</button>
+      </div>
+      <div class="flex gap-3 mb-4">
+        <input type="date" id="jurnal-start" onchange="renderJurnal()" class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs">
+        <span class="self-center text-xs text-gray-500">s/d</span>
+        <input type="date" id="jurnal-end" onchange="renderJurnal()" class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs">
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 text-xs text-gray-500"><th class="px-4 py-3 text-left">Tanggal</th><th class="px-4 py-3 text-left">Deskripsi</th><th class="px-4 py-3 text-left">Sumber</th><th class="px-4 py-3 text-right">Debit</th><th class="px-4 py-3 text-right">Kredit</th></tr></thead>
+        <tbody id="jurnal-table-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- TAB: LAPORAN -->
+    <div id="tab-laporan" class="hidden">
+      <h1 class="text-xl font-bold mb-4">📈 Laporan Laba Rugi</h1>
+      <div class="flex gap-3 mb-4">
+        <input type="date" id="laporan-start" onchange="renderLaporan()" class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs">
+        <span class="self-center text-xs text-gray-500">s/d</span>
+        <input type="date" id="laporan-end" onchange="renderLaporan()" class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs">
+        <button onclick="renderLaporan()" class="px-4 py-2 bg-orange-accent text-white rounded-lg text-xs font-bold">🔍 Tampilkan</button>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 card-shadow max-w-2xl">
+        <div id="laporan-content" class="space-y-3 font-mono text-sm"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- JURNAL FORM MODAL -->
+<div id="jurnal-modal" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center" onclick="if(event.target===this)closeJurnalForm()">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md" onclick="event.stopPropagation()">
+    <h3 class="text-lg font-bold mb-4">📝 Entri Jurnal Manual</h3>
+    <div class="space-y-3">
+      <div><label class="block text-xs font-medium mb-1">Tanggal</label><input type="date" id="jrl-tanggal" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      <div><label class="block text-xs font-medium mb-1">Deskripsi</label><input type="text" id="jrl-desc" placeholder="Biaya listrik, gaji, dll..." class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      <div><label class="block text-xs font-medium mb-1">Tipe</label><select id="jrl-tipe" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><option value="debit">Debit (Biaya/Keluar)</option><option value="credit">Kredit (Pemasukan)</option></select></div>
+      <div><label class="block text-xs font-medium mb-1">Jumlah (Rp)</label><input type="number" id="jrl-amount" placeholder="0" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono"></div>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button onclick="closeJurnalForm()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm">Batal</button>
+      <button onclick="saveJurnalEntry()" class="flex-1 py-2.5 bg-orange-accent text-white rounded-lg text-sm font-bold">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"></div>
+
+<script>
+// ===== TAB NAVIGATION =====
+function switchTab(tab) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+  document.getElementById('tab-'+tab).classList.remove('hidden');
+  document.querySelectorAll('aside button').forEach(b => { b.classList.remove('nav-active'); b.classList.add('text-gray-500','hover:bg-gray-50'); });
+  document.getElementById('nav-'+tab).classList.add('nav-active');
+  document.getElementById('nav-'+tab).classList.remove('text-gray-500','hover:bg-gray-50');
+  if (tab === 'dashboard') renderDashboard();
+  if (tab === 'jurnal') renderJurnal();
+  if (tab === 'laporan') renderLaporan();
+}
+
+// ===== DATA HELPERS =====
+function getJurnal() {
+  try { return JSON.parse(localStorage.getItem('apotek_pos_jurnal') || '[]'); } catch(e) { return []; }
+}
+function saveJurnal(data) { localStorage.setItem('apotek_pos_jurnal', JSON.stringify(data)); }
+
+function getTransactions() {
+  try { return JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) { return []; }
+}
+
+function getInvoices() {
+  try { return JSON.parse(localStorage.getItem('apotek_purchase_invoices') || '[]'); } catch(e) { return []; }
+}
+
+// ===== AUTO-GENERATE JURNAL DARI TRANSAKSI =====
+function autoGenerateJurnal() {
+  var txns = getTransactions();
+  var jurnal = getJurnal();
+  var existingIds = jurnal.map(function(j) { return j.source_id; });
+  
+  txns.forEach(function(t) {
+    if (existingIds.indexOf(t.id || t.trx_no) === -1) {
+      // Debit: Kas (pemasukan)
+      jurnal.push({
+        id: 'jrl-'+Date.now()+'-'+Math.random().toString(36).substr(2,4),
+        tanggal: (t.created_at || new Date().toISOString()).split('T')[0],
+        deskripsi: 'Penjualan - ' + (t.trx_no || t.id),
+        source_type: 'sales',
+        source_id: t.id || t.trx_no,
+        debit: t.total || t.subtotal || 0,
+        credit: 0
+      });
+      // Kredit: Pendapatan
+      jurnal.push({
+        id: 'jrl-'+Date.now()+'-'+Math.random().toString(36).substr(2,4),
+        tanggal: (t.created_at || new Date().toISOString()).split('T')[0],
+        deskripsi: 'Pendapatan Penjualan - ' + (t.trx_no || t.id),
+        source_type: 'revenue',
+        source_id: t.id || t.trx_no,
+        debit: 0,
+        credit: t.total || t.subtotal || 0
+      });
+    }
+  });
+  saveJurnal(jurnal);
+}
+
+// ===== DASHBOARD =====
+function renderDashboard() {
+  autoGenerateJurnal();
+  var today = new Date().toISOString().split('T')[0];
+  var txns = getTransactions().filter(function(t) { return (t.created_at || '').startsWith(today); });
+  var revenue = txns.reduce(function(s,t) { return s + (t.total || t.subtotal || 0); }, 0);
+  
+  // HPP = sum of harga_beli * qty (simplified: 65% of revenue)
+  var hpp = Math.round(revenue * 0.65);
+  var profit = revenue - hpp;
+  
+  // Hutang supplier
+  var invoices = getInvoices().filter(function(inv) { return inv.status === 'DITERIMA'; });
+  var debt = invoices.reduce(function(s, inv) { return s + ((inv.total||0) - (inv.dibayar||0)); }, 0);
+  
+  document.getElementById('kpi-revenue').textContent = 'Rp ' + revenue.toLocaleString('id');
+  document.getElementById('kpi-hpp').textContent = 'Rp ' + hpp.toLocaleString('id');
+  document.getElementById('kpi-profit').textContent = 'Rp ' + profit.toLocaleString('id');
+  document.getElementById('kpi-debt').textContent = 'Rp ' + debt.toLocaleString('id');
+  
+  // Recent transactions
+  var recent = txns.slice(0, 5);
+  document.getElementById('recent-txns').innerHTML = recent.length ? recent.map(function(t) {
+    return '<div class="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-900 rounded-lg"><div><span class="text-xs font-mono">'+(t.trx_no||t.id)+'</span><span class="text-xs text-gray-500 ml-2">'+(t.metode_bayar||'tunai').toUpperCase()+'</span></div><span class="font-mono font-bold text-xs">Rp '+(t.total||t.subtotal||0).toLocaleString('id')+'</span></div>';
+  }).join('') : '<p class="text-sm text-gray-400">Belum ada transaksi hari ini</p>';
+  
+  // Cashflow
+  var methods = {};
+  txns.forEach(function(t) { var m = (t.metode_bayar||'tunai'); methods[m] = (methods[m]||0) + (t.total||t.subtotal||0); });
+  document.getElementById('cashflow-chart').innerHTML = Object.keys(methods).map(function(m) {
+    var pct = revenue > 0 ? Math.round(methods[m] / revenue * 100) : 0;
+    return '<div><div class="flex justify-between text-xs mb-1"><span>'+m.toUpperCase()+'</span><span class="font-mono">Rp '+methods[m].toLocaleString('id')+'</span></div><div class="h-2 bg-gray-100 rounded-full"><div class="h-full bg-orange-accent rounded-full" style="width:'+pct+'%"></div></div></div>';
+  }).join('') || '<p class="text-sm text-gray-400">Belum ada data</p>';
+}
+
+// ===== JURNAL =====
+function renderJurnal() {
+  autoGenerateJurnal();
+  var start = document.getElementById('jurnal-start').value || '2026-01-01';
+  var end = document.getElementById('jurnal-end').value || new Date().toISOString().split('T')[0];
+  var data = getJurnal().filter(function(j) { return j.tanggal >= start && j.tanggal <= end; });
+  data.sort(function(a,b) { return b.tanggal.localeCompare(a.tanggal) || (b.id||'').localeCompare(a.id||''); });
+  
+  var totalDebit = 0, totalKredit = 0;
+  var rows = data.map(function(j) {
+    totalDebit += j.debit || 0; totalKredit += j.credit || 0;
+    return '<tr class="row-hover"><td class="px-4 py-3 text-xs">'+j.tanggal+'</td><td class="px-4 py-3 text-xs">'+j.deskripsi+'</td><td class="px-4 py-3 text-xs text-gray-500">'+(j.source_type||'manual')+'</td><td class="px-4 py-3 text-xs font-mono text-right">'+(j.debit>0?'Rp '+j.debit.toLocaleString('id'):'-')+'</td><td class="px-4 py-3 text-xs font-mono text-right">'+(j.credit>0?'Rp '+j.credit.toLocaleString('id'):'-')+'</td></tr>';
+  }).join('');
+  
+  rows += '<tr class="bg-gray-50 dark:bg-gray-900 font-bold"><td colspan="3" class="px-4 py-3 text-xs">TOTAL</td><td class="px-4 py-3 text-xs font-mono text-right">Rp '+totalDebit.toLocaleString('id')+'</td><td class="px-4 py-3 text-xs font-mono text-right">Rp '+totalKredit.toLocaleString('id')+'</td></tr>';
+  document.getElementById('jurnal-table-body').innerHTML = rows || '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">Belum ada entri jurnal</td></tr>';
+}
+
+function openJurnalForm() {
+  document.getElementById('jurnal-modal').classList.remove('hidden');
+  document.getElementById('jrl-tanggal').value = new Date().toISOString().split('T')[0];
+}
+function closeJurnalForm() { document.getElementById('jurnal-modal').classList.add('hidden'); }
+function saveJurnalEntry() {
+  var desc = document.getElementById('jrl-desc').value.trim();
+  var amount = parseInt(document.getElementById('jrl-amount').value) || 0;
+  if (!desc || amount <= 0) { showToast('⚠️ Isi deskripsi dan jumlah'); return; }
+  var tipe = document.getElementById('jrl-tipe').value;
+  var entry = {
+    id: 'jrl-manual-'+Date.now(),
+    tanggal: document.getElementById('jrl-tanggal').value,
+    deskripsi: desc,
+    source_type: 'manual',
+    debit: tipe === 'debit' ? amount : 0,
+    credit: tipe === 'credit' ? amount : 0
+  };
+  var jurnal = getJurnal();
+  jurnal.push(entry);
+  saveJurnal(jurnal);
+  closeJurnalForm();
+  renderJurnal();
+  showToast('✅ Entri jurnal disimpan');
+}
+
+// ===== LAPORAN =====
+function renderLaporan() {
+  var start = document.getElementById('laporan-start').value || '2026-01-01';
+  var end = document.getElementById('laporan-end').value || new Date().toISOString().split('T')[0];
+  var txns = getTransactions().filter(function(t) { var d = (t.created_at||'').split('T')[0]; return d >= start && d <= end; });
+  var revenue = txns.reduce(function(s,t) { return s + (t.total||t.subtotal||0); }, 0);
+  var hpp = Math.round(revenue * 0.65);
+  
+  // Biaya dari jurnal manual (debit)
+  var jurnal = getJurnal().filter(function(j) { return j.tanggal >= start && j.tanggal <= end && j.source_type === 'manual' && j.debit > 0; });
+  var biaya = jurnal.reduce(function(s,j) { return s + j.debit; }, 0);
+  
+  var labaKotor = revenue - hpp;
+  var labaBersih = labaKotor - biaya;
+  
+  document.getElementById('laporan-content').innerHTML = 
+    '<div class="text-center font-bold text-lg mb-4">Laporan Laba Rugi</div>'+
+    '<div class="text-center text-xs text-gray-500 mb-4">Periode: '+start+' s/d '+end+'</div>'+
+    '<div class="border-t border-gray-200 pt-3"></div>'+
+    '<div class="flex justify-between"><span>Pendapatan Penjualan</span><span class="font-bold">Rp '+revenue.toLocaleString('id')+'</span></div>'+
+    '<div class="flex justify-between"><span>HPP (Estimasi 65%)</span><span class="text-red-600">(Rp '+hpp.toLocaleString('id')+')</span></div>'+
+    '<div class="border-t border-gray-200 pt-2"></div>'+
+    '<div class="flex justify-between font-bold"><span>Laba Kotor</span><span class="text-primary">Rp '+labaKotor.toLocaleString('id')+'</span></div>'+
+    '<div class="flex justify-between"><span>Biaya Operasional</span><span class="text-red-600">(Rp '+biaya.toLocaleString('id')+')</span></div>'+
+    '<div class="border-t border-double border-gray-400 pt-2"></div>'+
+    '<div class="flex justify-between font-bold text-lg"><span>Laba Bersih</span><span class="text-primary">Rp '+labaBersih.toLocaleString('id')+'</span></div>';
+}
+
+// ===== UTILS =====
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  setTimeout(function() { t.classList.add('hidden'); }, 2000);
+}
+
+// Init
+(function() {
+  var today = new Date().toISOString().split('T')[0];
+  document.getElementById('jurnal-start').value = today;
+  document.getElementById('jurnal-end').value = today;
+  document.getElementById('laporan-start').value = '2026-06-01';
+  document.getElementById('laporan-end').value = today;
+  renderDashboard();
+})();
+</script>
+<div style="text-align:center;padding:8px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb">Powered by <b>Digicraft</b></div></body>
+</html>

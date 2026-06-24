@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Preview — Kontak | Apotek POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- FIX: Load Supabase SDK + bridge for future Supabase integration -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-bridge.js"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { mono: ['Fira Code','Consolas','monospace'], sans: ['Fira Sans','Inter','system-ui','sans-serif'] },
+      colors: { 
+        primary:'#15803D', secondary:'#22C55E', accent:'#0369A1', 
+        surface:'#F0FDF4', 'text-primary':'#14532D', 'text-secondary':'#166534',
+        'dashboard-gray': '#F4F5F7', 'orange-accent': '#FF5A1F'
+      }
+    }
+  }
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>.row-hover:hover{background:#f0fdf4;}.nav-active{background:#dcfce7;color:#14532D;}</style>
+
+<script>
+  // Dark Mode Logic
+  function toggleDarkMode() {
+    document.documentElement.classList.toggle('dark');
+    const isDark = document.documentElement.classList.contains('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeIcon(isDark);
+  }
+  
+  function updateThemeIcon(isDark) {
+    const sunIcon = document.getElementById('sun-icon');
+    const moonIcon = document.getElementById('moon-icon');
+    if(sunIcon && moonIcon) {
+        if(isDark) {
+            sunIcon.classList.remove('scale-100', 'opacity-100');
+            sunIcon.classList.add('scale-0', 'opacity-0');
+            moonIcon.classList.remove('scale-0', 'opacity-0');
+            moonIcon.classList.add('scale-100', 'opacity-100');
+        } else {
+            moonIcon.classList.remove('scale-100', 'opacity-100');
+            moonIcon.classList.add('scale-0', 'opacity-0');
+            sunIcon.classList.remove('scale-0', 'opacity-0');
+            sunIcon.classList.add('scale-100', 'opacity-100');
+        }
+    }
+  }
+
+  // Init theme
+  if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  window.addEventListener('DOMContentLoaded', () => {
+    updateThemeIcon(document.documentElement.classList.contains('dark'));
+  });
+</script>
+
+
+<style>
+  /* Finexy Custom Styles & Dark Mode Fixes */
+  .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); }
+  .dark .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5); }
+  .row-hover:hover { background: #f9fafb; }
+  .dark .row-hover:hover { background: #1f2937; }
+  .nav-active { background: #111827; color: #ffffff; }
+  .dark .nav-active { background: #FF5A1F; color: #ffffff; }
+</style>
+
+</head>
+<body class="bg-dashboard-gray dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors">
+
+<header class="sticky top-0 z-40 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 card-shadow">
+  <div class="flex items-center gap-3">
+    <span class="text-lg font-bold text-primary font-mono">💊 ApotekPOS</span>
+
+    <span class="text-sm font-medium">Kontak</span>
+  </div>
+  <div class="flex items-center gap-3">
+    
+    <!-- Theme Toggle -->
+    <button onclick="toggleDarkMode()" class="group relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 bg-transparent text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+      <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 scale-0 opacity-0 transition-all absolute text-gray-400">
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+      </svg>
+      <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 scale-100 opacity-100 transition-all absolute text-gray-500 dark:text-gray-400">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2"></path>
+        <path d="M12 20v2"></path>
+        <path d="m4.93 4.93 1.41 1.41"></path>
+        <path d="m17.66 17.66 1.41 1.41"></path>
+        <path d="M2 12h2"></path>
+        <path d="M20 12h2"></path>
+        <path d="m6.34 17.66-1.41 1.41"></path>
+        <path d="m19.07 4.93-1.41 1.41"></path>
+      </svg>
+    </button>
+
+    <span class="text-xs text-gray-500 dark:text-gray-400">Outlet Pusat · Admin</span>
+    <div class="w-8 h-8 rounded-full bg-orange-accent dark:bg-orange-600 flex items-center justify-center text-white text-sm font-bold">A</div>
+  </div>
+</header>
+
+<div class="flex h-[calc(100vh-56px)]">
+  <aside id="global-sidebar" class="w-56 transition-all duration-300 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col py-2">
+    <div class="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kontak</div>
+    <button onclick="switchTab('pelanggan')" id="nav-pelanggan" class="nav-active flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium transition cursor-pointer">👥 Pelanggan</button>
+    <button onclick="switchTab('dokter')" id="nav-dokter" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">🏥 Dokter</button>
+    <button onclick="switchTab('import')" id="nav-import" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">📥 Import</button>
+    <hr class="my-3 mx-3 border-gray-100">
+    <a href="preview_kasir.html" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer"></a>
+  </aside>
+
+  <main class="flex-1 overflow-y-auto p-6">
+
+    <!-- ========== TAB: PELANGGAN ========== -->
+    <div id="tab-pelanggan">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Pelanggan</h1><p class="text-sm text-gray-500 dark:text-gray-400">Data pasien & pelanggan apotek</p></div>
+        <div class="flex gap-2">
+          <button onclick="switchTab('import')" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">📥 Import</button>
+          <button onclick="openContactForm('pelanggan')" class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            Tambah Pelanggan
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Pelanggan</p><p class="text-2xl font-bold font-mono">128</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Member</p><p class="text-2xl font-bold font-mono text-amber-600">42</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Baru Bulan Ini</p><p class="text-2xl font-bold font-mono text-green-700">12</p></div>
+      </div>
+
+      <div class="flex gap-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 mb-3">
+        <div class="relative flex-1"><svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg><input type="text" placeholder="Cari nama, no HP, kode..." class="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none"></div>
+        <select class="py-2 px-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer"><option>Semua Status</option><option>Member</option><option>Biasa</option></select>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Kode</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Nama</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">No HP</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Alamat</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Status</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Transaksi</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Aksi</th></tr></thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr class="row-hover cursor-pointer" onclick="openContactForm('pelanggan','Budi Santoso')"><td class="px-4 py-3 font-mono text-xs">PEL-000001</td><td class="px-4 py-3 font-medium">Budi Santoso</td><td class="px-4 py-3 text-xs">0812-3456-7890</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">Jl. Sehat No. 12, Jakarta</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⭐ Member</span></td><td class="px-4 py-3 text-center font-mono text-xs">12</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+              <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">PEL-000002</td><td class="px-4 py-3 font-medium">Siti Aminah</td><td class="px-4 py-3 text-xs">0856-7890-1234</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">Jl. Melati 5, Bandung</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">Biasa</span></td><td class="px-4 py-3 text-center font-mono text-xs">3</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+              <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">PEL-000003</td><td class="px-4 py-3 font-medium">Ahmad Rizki</td><td class="px-4 py-3 text-xs">0877-1122-3344</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">Komplek Masjid No. 3</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Baru</span></td><td class="px-4 py-3 text-center font-mono text-xs">1</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+              <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">PEL-000004</td><td class="px-4 py-3 font-medium">Dewi Lestari</td><td class="px-4 py-3 text-xs">0813-9988-7766</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">Perum Griya Asri Blok D/4</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⭐ Member</span></td><td class="px-4 py-3 text-center font-mono text-xs">8</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== TAB: DOKTER ========== -->
+    <div id="tab-dokter" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Dokter</h1><p class="text-sm text-gray-500 dark:text-gray-400">Data dokter untuk referensi resep & analisa</p></div>
+        <button onclick="openContactForm('dokter')" class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Tambah Dokter
+        </button>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Kode</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Nama</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">No SIP</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Spesialisasi</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Institusi</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">No HP</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Aksi</th></tr></thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr class="row-hover cursor-pointer" onclick="openContactForm('dokter','Dr. Andi')"><td class="px-4 py-3 font-mono text-xs">DOK-000001</td><td class="px-4 py-3 font-medium">Dr. Andi Wijaya</td><td class="px-4 py-3 font-mono text-xs">SIP/2018/001</td><td class="px-4 py-3">Dokter Umum</td><td class="px-4 py-3 text-xs">RS Sehat Sentosa</td><td class="px-4 py-3 text-xs">0811-2233-4455</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">DOK-000002</td><td class="px-4 py-3 font-medium">Dr. Ratna Dewi, Sp.A</td><td class="px-4 py-3 font-mono text-xs">SIP/2019/045</td><td class="px-4 py-3">Dokter Anak</td><td class="px-4 py-3 text-xs">RS Ibu dan Anak</td><td class="px-4 py-3 text-xs">0855-6677-8899</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">DOK-000003</td><td class="px-4 py-3 font-medium">Dr. Hendra Gunawan</td><td class="px-4 py-3 font-mono text-xs">SIP/2020/112</td><td class="px-4 py-3">Dokter Kulit</td><td class="px-4 py-3 text-xs">Klinik Sehat</td><td class="px-4 py-3 text-xs">0899-0011-2233</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== TAB: IMPORT ========== -->
+    <div id="tab-import" class="hidden">
+      <h1 class="text-xl font-bold mb-4">Import Pelanggan</h1>
+      <div class="max-w-2xl">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-5">
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 text-lg font-bold text-primary">1</div>
+            <div>
+              <h3 class="font-semibold mb-1">Download Template</h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Gunakan template Excel yang sudah disediakan.</p>
+              <button class="px-4 py-2 border border-orange-accent dark:border-orange-600 text-primary rounded-lg text-sm font-medium hover:bg-green-50 transition cursor-pointer">📥 Template Pelanggan.xlsx</button>
+            </div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 text-lg font-bold text-primary">2</div>
+            <div>
+              <h3 class="font-semibold mb-1">Upload File</h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Upload file Excel/CSV yang sudah diisi.</p>
+              <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-orange-accent dark:border-orange-600 transition cursor-pointer">
+                <svg class="w-10 h-10 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+                <p class="text-sm font-medium">Drag & drop file di sini</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">atau <span class="text-accent">pilih file</span></p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Format: .xlsx, .xls, .csv (max 5MB)</p>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg font-bold text-gray-400">3</div>
+            <div>
+              <h3 class="font-semibold mb-1 text-gray-400">Preview & Import</h3>
+              <p class="text-sm text-gray-400">Hasil validasi akan ditampilkan sebelum data diimpor.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===== CONTACT FORM SLIDE-OVER ===== -->
+<div id="form-overlay" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onclick="closeContactForm()"></div>
+<div id="form-slideover" class="hidden fixed right-0 top-0 z-50 h-full w-[500px] max-w-[95vw] bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+  <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+    <h3 class="text-lg font-bold" id="form-title">Tambah Pelanggan</h3>
+    <button onclick="closeContactForm()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-5 space-y-4">
+    <div><label class="block text-xs font-medium mb-1">Kode</label><input type="text" value="PEL-000001" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono outline-none" readonly></div>
+    <div><label class="block text-xs font-medium mb-1">Nama <span class="text-red-500">*</span></label><input type="text" placeholder="Nama lengkap..." class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none"></div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="block text-xs font-medium mb-1">No HP / WA</label><input type="text" placeholder="08xxxxxxxxxx" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none"></div>
+      <div><label class="block text-xs font-medium mb-1">Email</label><input type="email" placeholder="email@..." class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none"></div>
+    </div>
+    <div><label class="block text-xs font-medium mb-1">Alamat</label><textarea rows="2" placeholder="Alamat lengkap..." class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none resize-none"></textarea></div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="block text-xs font-medium mb-1">Tanggal Lahir</label><input type="date" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      <div><label class="block text-xs font-medium mb-1">Jenis Kelamin</label><select class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer"><option></option><option>Pria</option><option>Wanita</option></select></div>
+    </div>
+    <div class="grid grid-cols-2 gap-3" id="extra-fields">
+      <div><label class="block text-xs font-medium mb-1">Status Member</label><select class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer"><option>Biasa</option><option>Member</option></select></div>
+      <div><label class="block text-xs font-medium mb-1">Poin</label><input type="number" value="0" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono"></div>
+    </div>
+    <div id="dokter-fields" class="hidden space-y-4">
+      <div><label class="block text-xs font-medium mb-1">No SIP</label><input type="text" placeholder="SIP/20xx/xxx" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-accent outline-none"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs font-medium mb-1">Spesialisasi</label><select class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer"><option></option><option>Dokter Umum</option><option>Dokter Anak</option><option>Dokter Kulit</option><option>Dokter THT</option><option>Dokter Mata</option></select></div>
+        <div><label class="block text-xs font-medium mb-1">Institusi</label><input type="text" placeholder="RS / Klinik..." class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      </div>
+    </div>
+  </div>
+  <div class="p-4 border-t border-gray-100 flex gap-3">
+    <button onclick="closeContactForm()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">Batal</button>
+    <button onclick="saveContact()" class="flex-1 py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">💾 Simpan</button>
+  </div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-text-primary text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"></div>
+
+<script>
+function switchTab(tab) {
+  // Hide all tab contents
+  const allContents = document.querySelectorAll('[id^="tab-"]');
+  allContents.forEach(el => {
+      // Only hide if it's a direct tab content container
+      if(el.tagName === 'DIV' && el.parentElement.tagName !== 'TR') {
+          el.classList.add('hidden');
+      }
+  });
+  
+  // Show target content
+  const target = document.getElementById('tab-' + tab);
+  if(target) target.classList.remove('hidden');
+  
+  // Update Nav visual state
+  const allNavs = document.querySelectorAll('[id^="nav-"]');
+  allNavs.forEach(nav => {
+      // Remove active classes
+      nav.classList.remove('nav-active', 'bg-orange-accent', 'dark:bg-orange-600', 'text-white');
+      // Add inactive classes
+      nav.classList.add('text-gray-500', 'dark:text-gray-400', 'hover:bg-gray-50', 'dark:hover:bg-gray-900');
+  });
+  
+  // Set target nav active
+  const targetNav = document.getElementById('nav-' + tab);
+  if(targetNav) {
+      targetNav.classList.add('nav-active', 'bg-orange-accent', 'dark:bg-orange-600', 'text-white');
+      targetNav.classList.remove('text-gray-500', 'dark:text-gray-400', 'hover:bg-gray-50', 'dark:hover:bg-gray-900');
+  }
+}
+
+
+function openContactForm(tipe, nama) {
+  document.getElementById('form-overlay').classList.remove('hidden');
+  document.getElementById('form-slideover').classList.remove('hidden');
+  document.getElementById('form-title').textContent = nama ? ('Edit: ' + nama) : (tipe === 'pelanggan' ? 'Tambah Pelanggan' : 'Tambah Dokter');
+  document.getElementById('extra-fields').classList.toggle('hidden', tipe !== 'pelanggan');
+  document.getElementById('dokter-fields').classList.toggle('hidden', tipe !== 'dokter');
+}
+
+function closeContactForm() {
+  document.getElementById('form-overlay').classList.add('hidden');
+  document.getElementById('form-slideover').classList.add('hidden');
+}
+
+function saveContact() {
+  closeContactForm();
+  const t = document.getElementById('toast');
+  t.textContent = '💾 Data kontak tersimpan';
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 2000);
+}
+
+document.getElementById('form-overlay').addEventListener('click', function(e) { if(e.target===this) closeContactForm(); });
+
+// ===== INIT: read profile from localStorage =====
+(function(){const n=localStorage.getItem('apotek_pos_profile_name')||'ApotekPOS';const el=document.getElementById('module-header-name');if(el)el.textContent='?? '+n;})();
+</script>
+
+<script>
+  function toggleSidebar() {
+      const sidebar = document.getElementById('global-sidebar');
+      const texts = sidebar.querySelectorAll('.nav-text');
+      const isCollapsed = sidebar.classList.contains('w-16');
+      
+      if(isCollapsed) {
+          sidebar.classList.remove('w-16');
+          sidebar.classList.add('w-56');
+          texts.forEach(t => t.classList.remove('hidden'));
+      } else {
+          sidebar.classList.remove('w-56');
+          sidebar.classList.add('w-16');
+          texts.forEach(t => t.classList.add('hidden'));
+      }
+  }
+</script>
+
+<script>
+  function comingSoon(feature) {
+      alert(`Fitur ${feature} sedang dalam tahap pengembangan dan akan terhubung ke Modul Kamera / Supabase di rilis selanjutnya.`);
+  }
+</script>
+<!-- FIX: Override saveContact with actual localStorage persistence -->
+<script>
+(function(){
+  var _orig = saveContact;
+  saveContact = function() {
+    var tipe = (document.getElementById('form-title').textContent || '').includes('Dokter') ? 'dokter' : 'pelanggan';
+    var inputs = document.querySelectorAll('#form-slideover input');
+    var nama = '', nohp = '', email = '', alamat = '', kode = '';
+    inputs.forEach(function(inp) {
+      var ph = inp.placeholder || '';
+      if (inp.readOnly) kode = inp.value;
+      else if (ph.includes('Nama')) nama = inp.value.trim();
+      else if (ph.includes('08')) nohp = inp.value.trim();
+      else if (inp.type === 'email') email = inp.value.trim();
+    });
+    var ta = document.querySelector('#form-slideover textarea');
+    if (ta) alamat = ta.value.trim();
+    if (!nama) { showToast('⚠️ Nama wajib diisi'); return; }
+    var contacts = [];
+    try { contacts = JSON.parse(localStorage.getItem('apotek_kontak') || '[]'); } catch(e) {}
+    contacts.unshift({ id:'kontak-'+Date.now(), tipe:tipe, kode:kode, nama:nama, no_hp:nohp, email:email, alamat:alamat, created_at:new Date().toISOString() });
+    localStorage.setItem('apotek_kontak', JSON.stringify(contacts));
+    closeContactForm();
+    showToast('💾 Data kontak tersimpan');
+  };
+})();
+</script>
+<!-- FIX: Upload & Template Excel handler -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    // Template download button
+    document.querySelectorAll('button').forEach(function(btn) {
+      if (btn.textContent.includes('Template') && btn.textContent.includes('.xlsx')) {
+        btn.onclick = function() {
+          var csv = 'Kode,Nama,No HP,Email,Alamat,Tipe\nPEL-001,Nama Pelanggan,081234567890,email@mail.com,Alamat,pelanggan\n';
+          var blob = new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8'});
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob); a.download = 'Template_Pelanggan.csv';
+          a.click(); URL.revokeObjectURL(a.href);
+          showToast('📥 Template didownload');
+        };
+      }
+    });
+    // Drag-drop zone
+    var zone = document.querySelector('.border-dashed');
+    if (zone) {
+      zone.style.cursor = 'pointer';
+      zone.onclick = function() {
+        var inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.xlsx,.xls,.csv';
+        inp.onchange = function(e) {
+          if (e.target.files[0]) { zone.innerHTML = '<p class="text-sm text-green-600">✅ '+e.target.files[0].name+' — siap</p>'; showToast('📄 File siap diimport'); }
+        };
+        inp.click();
+      };
+    }
+  }, 500);
+});
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'fixed bottom-6 left-1/2 z-50 bg-gray-900 text-white px-4 py-2 rounded-full text-sm'; t.style.transform = 'translateX(-50%)'; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.remove('hidden'); t.style.opacity = '1';
+  setTimeout(function() { t.style.opacity = '0'; }, 2000);
+}
+</script>
+<div style="text-align:center;padding:8px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb">Powered by <b>Digicraft</b></div></body>
+</html>

@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Apotek POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { mono: ['Fira Code','Consolas','monospace'], sans: ['Fira Sans','Inter','system-ui','sans-serif'] },
+      colors: { 
+        primary:'#15803D', secondary:'#22C55E', accent:'#0369A1', 
+        surface:'#F0FDF4', 'text-primary':'#14532D', 'text-secondary':'#166534',
+        'dashboard-gray': '#F4F5F7', 'orange-accent': '#FF5A1F'
+      }
+    }
+  }
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-bridge.js"></script>
+<style>
+  .sidebar-link { transition: all 120ms ease; }
+  .sidebar-link:hover { background: #dcfce7; }
+  .sidebar-link.active { background: #dcfce7; color: #14532D; font-weight: 600; }
+  .kpi-card { transition: all 150ms ease; }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .accordion-header { cursor: pointer; user-select: none; transition: all 120ms ease; }
+  .accordion-header:hover { background: #dcfce7; }
+  .accordion-content { overflow: hidden; transition: max-height 200ms ease; }
+  .accordion-content.collapsed { max-height: 0 !important; }
+  .accordion-arrow { transition: transform 200ms ease; display: inline-block; }
+  .accordion-header.collapsed .accordion-arrow { transform: rotate(-90deg); }
+  .tab-pill { transition: all 120ms ease; }
+  .tab-pill.active { background: #15803D; color: white; }
+  .row-hover:hover { background: #f0fdf4; }
+  .mini-sidebar-link { transition: all 120ms ease; }
+  .mini-sidebar-link:hover { background: #dcfce7; }
+  .mini-sidebar-link.active { background: #dcfce7; color: #14532D; font-weight: 600; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 80; display: flex; align-items: center; justify-content: center; }
+  .modal-box { background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto; }
+  .modal-box.wide { max-width: 640px; }
+  .switch-track { width: 44px; height: 24px; background: #d1d5db; border-radius: 12px; position: relative; transition: background 150ms; cursor: pointer; }
+  .switch-track.on { background: #15803D; }
+  .switch-thumb { width: 20px; height: 20px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: left 150ms; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .switch-track.on .switch-thumb { left: 22px; }
+  :root { --sidebar-width: 14rem; --sidebar-width-icon: 3.5rem; }
+  #global-sidebar { width: var(--sidebar-width); min-width: var(--sidebar-width); transition: width 0.25s ease, min-width 0.25s ease; }
+  #global-sidebar[data-state="collapsed"] { width: var(--sidebar-width-icon); min-width: var(--sidebar-width-icon); overflow-x: hidden; }
+  #global-sidebar[data-state="collapsed"] .px-4 { padding-left: 0.5rem; padding-right: 0.5rem; }
+  #global-sidebar[data-state="collapsed"] .nav-text, #global-sidebar[data-state="collapsed"] .accordion-content, #global-sidebar[data-state="collapsed"] .accordion-header span:first-child { display: none; }
+  #global-sidebar[data-state="collapsed"] .sidebar-link { justify-content: center; padding: 0.6rem; position: relative; }
+  #global-sidebar[data-state="collapsed"] .sidebar-link:hover::after { content: attr(data-tooltip); position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); background: #1f2937; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; z-index: 100; pointer-events: none; }
+  .dark #global-sidebar[data-state="collapsed"] .sidebar-link:hover::after { background: #e5e7eb; color: #111827; }
+  @media (max-width:768px){ #global-sidebar{position:fixed;z-index:50;height:100vh;left:0;top:56px} #global-sidebar:not([data-mobile-open]){left:calc(var(--sidebar-width)*-1)} #global-sidebar[data-mobile-open]{left:0;box-shadow:4px 0 12px rgba(0,0,0,.15)} .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:40} .sidebar-overlay.active{display:block} }
+</style>
+
+<script>
+  // Dark Mode Logic
+  function toggleDarkMode() {
+    document.documentElement.classList.toggle('dark');
+    const isDark = document.documentElement.classList.contains('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeIcon(isDark);
+  }
+  
+  function updateThemeIcon(isDark) {
+    const sunIcon = document.getElementById('sun-icon');
+    const moonIcon = document.getElementById('moon-icon');
+    if(sunIcon && moonIcon) {
+        if(isDark) {
+            sunIcon.classList.remove('scale-100', 'opacity-100');
+            sunIcon.classList.add('scale-0', 'opacity-0');
+            moonIcon.classList.remove('scale-0', 'opacity-0');
+            moonIcon.classList.add('scale-100', 'opacity-100');
+        } else {
+            moonIcon.classList.remove('scale-100', 'opacity-100');
+            moonIcon.classList.add('scale-0', 'opacity-0');
+            sunIcon.classList.remove('scale-0', 'opacity-0');
+            sunIcon.classList.add('scale-100', 'opacity-100');
+        }
+    }
+  }
+
+  // Init theme
+  if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  window.addEventListener('DOMContentLoaded', () => {
+    updateThemeIcon(document.documentElement.classList.contains('dark'));
+  });
+</script>
+
+</head>
+<body class="bg-dashboard-gray dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors">
+
+<!-- ===== TOP BAR ===== -->
+<header class="sticky top-0 z-40 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 card-shadow">
+  <div class="flex items-center gap-3">
+    <button onclick="toggleSidebar()" class="sidebar-trigger p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 cursor-pointer" title="Toggle Sidebar (Ctrl+B)" id="sidebar-toggle-btn">
+    <svg class="w-5 h-5 transition-transform duration-300" id="sidebar-toggle-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+  </button>
+    <button onclick="goHome()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition cursor-pointer" title="Kembali ke Dashboard">
+      <span class="text-lg font-bold text-primary font-mono" id="header-name">💊 ApotekPOS</span>
+    </button>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="relative">
+      <button onclick="toggleOutletDropdown()" class="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-gray-100 transition cursor-pointer text-xs font-medium" id="header-outlet-btn">
+        <span id="header-outlet">Outlet Pusat</span>
+        <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
+      </button>
+      <div id="outlet-dropdown" class="hidden absolute top-full mt-1 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-1 w-52 z-50">
+        <div id="outlet-list" class="max-h-48 overflow-y-auto"></div>
+        <div class="border-t border-gray-100 mt-1 pt-1">
+          <button onclick="openOutletModal(null); toggleOutletDropdown()" class="w-full text-left px-3 py-1.5 text-xs text-accent hover:bg-gray-50 dark:bg-gray-900 rounded-lg transition cursor-pointer">+ Tambah Outlet</button>
+        </div>
+      </div>
+    </div>
+    <span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium" id="header-role">Admin</span>
+    <img id="header-logo-img" class="w-8 h-8 rounded-full object-cover hidden" alt="Logo">
+    <div class="w-8 h-8 rounded-full bg-orange-accent dark:bg-orange-600 flex items-center justify-center text-white text-sm font-bold cursor-pointer relative" onclick="showUserMenu()" id="header-avatar">A</div>
+    <div id="user-menu" class="hidden absolute top-14 right-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-2 w-48 z-50">
+      <div class="px-3 py-2 text-sm font-medium" id="menu-user-name">User</div>
+      <div class="px-3 py-1 text-xs text-gray-500 dark:text-gray-400" id="menu-user-role">Role</div>
+      <hr class="my-1">
+      <button onclick="switchTab('settings')" class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:bg-gray-900 rounded-lg transition cursor-pointer">⚙️ Settings</button>
+      <button onclick="doLogout()" class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:bg-gray-900 rounded-lg transition cursor-pointer text-red-600">🚪 Logout</button>
+    </div>
+  </div>
+</header>
+
+<!-- Outlet Modal -->
+<div id="outlet-modal" class="hidden modal-overlay" onclick="if(event.target===this)closeOutletModal()">
+  <div class="modal-box p-6" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg" id="outlet-modal-title">Tambah Outlet</h3>
+      <button onclick="closeOutletModal()" class="text-gray-400 hover:text-red-500 text-xl leading-none">&times;</button>
+    </div>
+    <div class="space-y-3">
+      <input type="hidden" id="outlet-edit-id">
+      <div><label class="block text-xs font-medium mb-1">Nama Outlet <span class="text-red-500">*</span></label><input type="text" id="outlet-nama" placeholder="Contoh: Cabang 3" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none"></div>
+      <div><label class="block text-xs font-medium mb-1">Alamat</label><input type="text" id="outlet-alamat" placeholder="Alamat lengkap" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none"></div>
+      <div><label class="block text-xs font-medium mb-1">Telepon</label><input type="text" id="outlet-telepon" placeholder="Nomor telepon" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none"></div>
+      <div class="flex items-center gap-2">
+        <label class="text-xs font-medium">Jadikan Default</label>
+        <input type="checkbox" id="outlet-default" class="rounded">
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveOutlet()" class="flex-1 px-4 py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer">💾 Simpan</button>
+      <button id="outlet-delete-btn" onclick="deleteOutlet()" class="hidden px-4 py-2.5 bg-red-500 text-white rounded-lg text-sm font-bold hover:bg-red-600 transition cursor-pointer">🗑 Hapus</button>
+      <button onclick="closeOutletModal()" class="px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden Logo Input -->
+<input type="file" id="logo-input" accept="image/*" onchange="handleLogoUpload(event)" class="hidden">
+
+<div class="flex h-[calc(100vh-56px)]">
+  <!-- ===== SIDEBAR ACCORDION ===== -->
+  <aside id="global-sidebar" class="flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 overflow-y-auto flex-shrink-0" style="">
+    <!-- Sidebar Logo -->
+    <div class="px-4 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
+      <div class="w-9 h-9 bg-gradient-to-br from-green-500 to-green-700 rounded-xl flex items-center justify-center shadow-md flex-shrink-0"><span class="text-white text-base">💊</span></div>
+      <div class="nav-text min-w-0"><p class="text-sm font-bold text-gray-900 dark:text-white truncate" id="sidebar-apotek-name">ApotekPOS</p><p class="text-[10px] text-gray-500 dark:text-gray-400 truncate" id="sidebar-outlet-name">Outlet Pusat</p></div>
+    </div>
+    
+    <nav class="flex-1 space-y-0.5">
+
+      <a onclick="switchTab('home')" id="nav-home" class="sidebar-link active flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm cursor-pointer">🏠 Dashboard</a>
+      <a onclick="switchTab('resep')" id="nav-resep" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📋 Input Resep</a>
+
+      <!-- Operasional -->
+      <div class="accordion-section">
+        <div class="accordion-header flex items-center justify-between px-3 py-2 mx-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" onclick="toggleSection(this)">
+          <span>📂 Operasional</span>
+          <span class="accordion-arrow text-[10px]">▼</span>
+        </div>
+        <div class="accordion-content" style="max-height:200px">
+          <a onclick="openModule('preview_kasir.html','Kasir')" id="menu-kasir" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">💰 Kasir</a>
+          <a onclick="openModule('preview_pelayanan.html','Pelayanan')" id="menu-pelayanan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🧪 Pelayanan</a>
+        </div>
+      </div>
+
+      <!-- Back Office -->
+      <div class="accordion-section" id="backoffice-section">
+        <div class="accordion-header flex items-center justify-between px-3 py-2 mx-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" onclick="toggleSection(this)">
+          <span>📂 Back Office</span>
+          <span class="accordion-arrow text-[10px]">▼</span>
+        </div>
+        <div class="accordion-content" style="max-height:400px">
+          <a onclick="openModule('preview_master_data.html','Master Data')" id="menu-master" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📦 Master Data</a>
+          <a onclick="openModule('preview_persediaan.html','Persediaan')" id="menu-persediaan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📊 Persediaan</a>
+          <a onclick="openModule('preview_pembelian.html','Pembelian')" id="menu-pembelian" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📋 Pembelian</a>
+          <a onclick="openModule('preview_kontak.html','Kontak')" id="menu-kontak" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">👥 Kontak</a>
+          <a onclick="openModule('preview_marketing.html','Marketing')" id="menu-marketing" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📢 Marketing</a>
+          <a onclick="openModule('preview_konsinyasi.html','Konsinyasi')" id="menu-konsinyasi" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🤝 Konsinyasi</a>
+          <a onclick="openModule('preview_keuangan.html','Keuangan')" id="menu-keuangan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">💵 Keuangan</a>
+        </div>
+      </div>
+
+      <!-- Keuangan & Pajak -->
+      <div class="accordion-section" id="keupajak-section">
+        <div class="accordion-header collapsed flex items-center justify-between px-3 py-2 mx-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" onclick="toggleSection(this)">
+          <span>📂 Keuangan & Pajak</span>
+          <span class="accordion-arrow text-[10px]">▼</span>
+        </div>
+        <div class="accordion-content collapsed" style="max-height:200px">
+          <a onclick="switchTab('akuntansi')" id="menu-akuntansi" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📖 Akuntansi</a>
+          <a onclick="switchTab('pajak')" id="menu-pajak" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🧾 Pajak</a>
+        </div>
+      </div>
+
+      <!-- Laporan -->
+      <div class="accordion-section" id="laporan-section">
+        <div class="accordion-header collapsed flex items-center justify-between px-3 py-2 mx-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" onclick="toggleSection(this)">
+          <span>📂 Laporan</span>
+          <span class="accordion-arrow text-[10px]">▼</span>
+        </div>
+        <div class="accordion-content collapsed" style="max-height:100px">
+          <a onclick="switchTab('laporan')" id="menu-laporan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📈 Semua Laporan</a>
+        </div>
+      </div>
+
+      <a onclick="switchTab('settings')" id="nav-settings" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">⚙️ Settings</a>
+      <a onclick="openModule('preview_manajemen.html','Manajemen Pengguna')" id="menu-manajemen" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🛡️ Manajemen Pengguna</a>
+    </nav>
+    <div class="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 dark:text-gray-400">
+      v1.0 · ApotekPOS · Powered by <b>Digicraft</b>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="flex-1 overflow-y-auto">
+
+    <!-- IFRAME: MODULE CONTAINER (inline, not fullscreen) -->
+    <div id="tab-module" class="hidden p-4 h-full">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-bold" id="module-title">Modul</h2>
+        <button onclick="closeModule()" class="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">✕ Tutup</button>
+      </div>
+      <iframe id="module-iframe" class="w-full border-0 rounded-xl" style="height:calc(100% - 56px);min-height:80vh;"></iframe>
+    </div>
+
+    <!-- ==================== TAB: HOME ==================== -->
+    <div id="tab-home" class="p-6">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div>
+          <h1 class="text-xl font-bold mb-1">Dashboard</h1>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Ringkasan bisnis · <span id="today-date">19 Juni 2026</span></p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <input type="date" id="dashboard-date-start" value="2026-06-13" class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:ring-2 focus:ring-orange-accent outline-none" onchange="refreshDashboard()">
+          
+    <!-- Theme Toggle -->
+    <button onclick="toggleDarkMode()" class="group relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 bg-transparent text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+      <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 scale-0 opacity-0 transition-all absolute text-gray-400">
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+      </svg>
+      <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 scale-100 opacity-100 transition-all absolute text-gray-500 dark:text-gray-400">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2"></path>
+        <path d="M12 20v2"></path>
+        <path d="m4.93 4.93 1.41 1.41"></path>
+        <path d="m17.66 17.66 1.41 1.41"></path>
+        <path d="M2 12h2"></path>
+        <path d="M20 12h2"></path>
+        <path d="m6.34 17.66-1.41 1.41"></path>
+        <path d="m19.07 4.93-1.41 1.41"></path>
+      </svg>
+    </button>
+
+    <span class="text-xs text-gray-500 dark:text-gray-400">s/d</span>
+          <input type="date" id="dashboard-date-end" value="2026-06-19" class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:ring-2 focus:ring-orange-accent outline-none" onchange="refreshDashboard()">
+          <button onclick="refreshDashboard()" class="px-3 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-700 transition cursor-pointer">🔍 Filter</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-4 gap-3 mb-3">
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow cursor-pointer" onclick="openModule('preview_kasir.html','Kasir')"><p class="text-xs text-gray-500 dark:text-gray-400">Penjualan Hari Ini</p><p class="text-2xl font-bold font-mono text-primary">Rp 2.450.000</p><p class="text-xs text-secondary mt-1">↑ 12% dari kemarin</p></div>
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-green-200 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Keuntungan Hari Ini</p><p class="text-2xl font-bold font-mono text-green-700">Rp 612.500</p><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Margin 25% · ↑ 8% dr kemarin</p></div>
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Transaksi Hari Ini</p><p class="text-2xl font-bold font-mono text-gray-900 dark:text-gray-100">18</p><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">4 tunai · 8 QRIS · 6 e-wallet</p></div>
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-blue-200 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Cash Kasir Aktif</p><p class="text-2xl font-bold font-mono text-blue-700">Rp 1.200.000</p><p class="text-xs text-blue-500 mt-1">Shift berjalan · 6 jam 24 mnt</p></div>
+      </div>
+      <div class="grid grid-cols-4 gap-3 mb-4">
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-indigo-200 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Tuslah Hari Ini</p><p class="text-2xl font-bold font-mono text-indigo-700">Rp 85.000</p><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">5 racikan · rata² Rp 17.000</p></div>
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-amber-200 card-shadow cursor-pointer" onclick="openModule('preview_persediaan.html','Persediaan')"><p class="text-xs text-gray-500 dark:text-gray-400">Stok Menipis</p><p class="text-2xl font-bold font-mono text-amber-600">4</p><p class="text-xs text-amber-500 mt-1">Butuh reorder segera</p></div>
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-red-200 card-shadow cursor-pointer" onclick="openModule('preview_persediaan.html','Persediaan')"><p class="text-xs text-gray-500 dark:text-gray-400">Batch Hampir Kadaluarsa</p><p class="text-2xl font-bold font-mono text-red-600">3</p><p class="text-xs text-red-500 mt-1">&lt; 30 hari · nilai Rp 450rb</p></div>
+        <div class="kpi-card bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow cursor-pointer" onclick="openModule('preview_pembelian.html','Pembelian')"><p class="text-xs text-gray-500 dark:text-gray-400">Hutang Supplier</p><p class="text-2xl font-bold font-mono text-gray-900 dark:text-gray-100">Rp 9.256.000</p><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">2 supplier · 1 jatuh tempo</p></div>
+      </div>
+      <div class="grid grid-cols-3 gap-4 mb-4">
+        <div class="col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow">
+          <h3 class="font-semibold mb-4">Penjualan 7 Hari Terakhir</h3>
+          <div class="flex items-end gap-2 h-40">
+            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/20 rounded-t" style="height:45%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">13 Jun</span></div>
+            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/30 rounded-t" style="height:60%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">14 Jun</span></div>
+            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/40 rounded-t" style="height:35%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">15 Jun</span></div>
+            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/60 rounded-t" style="height:80%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">16 Jun</span></div>
+            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/70 rounded-t" style="height:65%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">17 Jun</span></div>
+            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/90 rounded-t" style="height:90%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">18 Jun</span></div>
+            <div class="flex-1 flex flex-col items-center gap-1 relative"><div class="w-full bg-orange-accent dark:bg-orange-600 rounded-t" style="height:100%"></div><span class="text-[10px] font-bold text-primary">19 Jun</span><span class="absolute -top-5 text-[10px] font-bold font-mono text-primary">2.45jt</span></div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow"><h3 class="font-semibold mb-3">🏅 Pelanggan Terloyal</h3>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-sm py-1.5 border-b border-gray-100"><div><span class="font-bold text-primary mr-2">#1</span>Budi Santoso</div><div class="text-xs"><span class="font-mono font-bold">24</span> transaksi</div></div>
+            <div class="flex items-center justify-between text-sm py-1.5 border-b border-gray-100"><div><span class="font-bold text-gray-500 dark:text-gray-400 mr-2">#2</span>Siti Rahayu</div><div class="text-xs"><span class="font-mono font-bold">19</span> transaksi</div></div>
+            <div class="flex items-center justify-between text-sm py-1.5 border-b border-gray-100"><div><span class="font-bold text-gray-500 dark:text-gray-400 mr-2">#3</span>Ahmad Hidayat</div><div class="text-xs"><span class="font-mono font-bold">16</span> transaksi</div></div>
+            <div class="flex items-center justify-between text-sm py-1.5 border-b border-gray-100"><div><span class="text-gray-500 dark:text-gray-400 mr-2">#4</span>Dewi Kusuma</div><div class="text-xs"><span class="font-mono font-bold">14</span> transaksi</div></div>
+            <div class="flex items-center justify-between text-sm py-1.5"><div><span class="text-gray-500 dark:text-gray-400 mr-2">#5</span>Rudi Hartono</div><div class="text-xs"><span class="font-mono font-bold">12</span> transaksi</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow"><h3 class="font-semibold mb-3">🔥 Top 10 Produk Terlaris Minggu Ini</h3>
+          <div class="space-y-2 max-h-80 overflow-y-auto">
+            <div class="flex items-center gap-3"><span class="text-sm font-bold text-primary w-6">#1</span><div class="flex-1"><div class="flex justify-between text-sm"><span>Paracetamol 500mg</span><span class="font-mono">32</span></div><div class="h-1.5 mt-1 bg-gray-100 rounded-full"><div class="h-full bg-orange-accent dark:bg-orange-600 rounded-full" style="width:100%"></div></div></div></div>
+            <div class="flex items-center gap-3"><span class="text-sm font-bold text-primary w-6">#2</span><div class="flex-1"><div class="flex justify-between text-sm"><span>Vitamin C 500mg</span><span class="font-mono">24</span></div><div class="h-1.5 mt-1 bg-gray-100 rounded-full"><div class="h-full bg-orange-accent dark:bg-orange-600 rounded-full" style="width:75%"></div></div></div></div>
+            <div class="flex items-center gap-3"><span class="text-sm font-bold text-primary w-6">#3</span><div class="flex-1"><div class="flex justify-between text-sm"><span>Amoxicillin 500mg</span><span class="font-mono">18</span></div><div class="h-1.5 mt-1 bg-gray-100 rounded-full"><div class="h-full bg-orange-accent dark:bg-orange-600 rounded-full" style="width:56%"></div></div></div></div>
+            <div class="flex items-center gap-3"><span class="text-sm font-bold text-gray-500 dark:text-gray-400 w-6">#4</span><div class="flex-1"><div class="flex justify-between text-sm"><span>OBH Combi</span><span class="font-mono">15</span></div><div class="h-1.5 mt-1 bg-gray-100 rounded-full"><div class="h-full bg-orange-accent dark:bg-orange-600/60 rounded-full" style="width:47%"></div></div></div></div>
+            <div class="flex items-center gap-3"><span class="text-sm font-bold text-gray-500 dark:text-gray-400 w-6">#5</span><div class="flex-1"><div class="flex justify-between text-sm"><span>Cetirizine 10mg</span><span class="font-mono">12</span></div><div class="h-1.5 mt-1 bg-gray-100 rounded-full"><div class="h-full bg-orange-accent dark:bg-orange-600/60 rounded-full" style="width:38%"></div></div></div></div>
+            <div class="flex items-center gap-3"><span class="text-sm text-gray-500 dark:text-gray-400 w-6">#6</span><div class="flex-1"><div class="flex justify-between text-sm"><span>Antasida DOEN</span><span class="font-mono">11</span></div><div class="h-1.5 mt-1 bg-gray-100 rounded-full"><div class="h-full bg-gray-300 rounded-full" style="width:34%"></div></div></div></div>
+            <div class="flex items-center gap-3"><span class="text-sm text-gray-500 dark:text-gray-400 w-6">#7</span><div class="flex-1"><div class="flex justify-between text-sm"><span>Betadine Sol. 60ml</span><span class="font-mono">9</span></div><div class="h-1.5 mt-1 bg-gray-100 rounded-full"><div class="h-full bg-gray-300 rounded-full" style="width:28%"></div></div></div></div>
+            <div class="flex items-center gap-3"><span class="text-sm text-gray-500 dark:text-gray-400 w-6">#8</span><div class="flex-1"><div class="flex justify-between text-sm"><span>Imboost Tab</span><span class="font-mono">8</span></div><div class="h-1.5 mt-1 bg-gray-100 rounded-full"><div class="h-full bg-gray-300 rounded-full" style="width:25%"></div></div></div></div>
+            <div class="flex items-center gap-3"><span class="text-sm text-gray-500 dark:text-gray-400 w-6">#9</span><div class="flex-1"><div class="flex justify-between text-sm"><span>Diapet 10mg</span><span class="font-mono">7</span></div><div class="h-1.5 mt-1 bg-gray-100 rounded-full"><div class="h-full bg-gray-300 rounded-full" style="width:22%"></div></div></div></div>
+            <div class="flex items-center gap-3"><span class="text-sm text-gray-500 dark:text-gray-400 w-6">#10</span><div class="flex-1"><div class="flex justify-between text-sm"><span>Glucophage 500mg</span><span class="font-mono">6</span></div><div class="h-1.5 mt-1 bg-gray-100 rounded-full"><div class="h-full bg-gray-300 rounded-full" style="width:19%"></div></div></div></div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow"><h3 class="font-semibold mb-2">⏰ Monitoring Kadaluarsa</h3>
+          <div class="mb-4"><p class="text-xs font-medium text-red-600 mb-2">🔴 Sudah Kadaluarsa (2 produk)</p>
+            <div class="space-y-2">
+              <div class="bg-red-50 rounded-lg p-2.5 border border-red-100 text-sm flex justify-between"><div><span class="font-medium">Amoxicillin 500mg</span><div class="text-xs text-gray-500 dark:text-gray-400">Batch: AMX-0324 · Exp: 15 Mar 2026</div></div><span class="text-red-600 font-mono font-bold text-xs self-center">10 strip</span></div>
+              <div class="bg-red-50 rounded-lg p-2.5 border border-red-100 text-sm flex justify-between"><div><span class="font-medium">OBH Combi 100ml</span><div class="text-xs text-gray-500 dark:text-gray-400">Batch: OBH-1225 · Exp: 2 Mei 2026</div></div><span class="text-red-600 font-mono font-bold text-xs self-center">5 botol</span></div>
+            </div>
+          </div>
+          <div><p class="text-xs font-medium text-amber-600 mb-2">🟡 Mendekati Kadaluarsa (&lt;30 hari, 3 batch)</p>
+            <div class="space-y-2">
+              <div class="bg-amber-50 rounded-lg p-2.5 border border-amber-100 text-sm flex justify-between"><div><span class="font-medium">Vitamin C 500mg</span><div class="text-xs text-gray-500 dark:text-gray-400">Batch: VC-0226 · Exp: 10 Jul 2026</div></div><span class="text-amber-600 font-mono font-bold text-xs self-center">20 hari</span></div>
+              <div class="bg-amber-50 rounded-lg p-2.5 border border-amber-100 text-sm flex justify-between"><div><span class="font-medium">Cetirizine 10mg</span><div class="text-xs text-gray-500 dark:text-gray-400">Batch: CT-0126 · Exp: 15 Jul 2026</div></div><span class="text-amber-600 font-mono font-bold text-xs self-center">25 hari</span></div>
+              <div class="bg-amber-50 rounded-lg p-2.5 border border-amber-100 text-sm flex justify-between"><div><span class="font-medium">Antasida DOEN</span><div class="text-xs text-gray-500 dark:text-gray-400">Batch: AN-0526 · Exp: 5 Jul 2026</div></div><span class="text-amber-600 font-mono font-bold text-xs self-center">15 hari</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <h3 class="font-semibold mb-3">Quick Actions</h3>
+      <div class="grid grid-cols-5 gap-3">
+        <button onclick="openModule('preview_kasir.html','Kasir')" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center hover:border-orange-accent dark:border-orange-600 hover:bg-green-50 transition cursor-pointer card-shadow"><div class="text-2xl mb-1">💰</div><p class="text-sm font-medium">Buka Kasir</p><p class="text-[10px] text-gray-500 dark:text-gray-400">Layani transaksi</p></button>
+        <button onclick="openModule('preview_pelayanan.html','Pelayanan')" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center hover:border-orange-accent dark:border-orange-600 hover:bg-green-50 transition cursor-pointer card-shadow"><div class="text-2xl mb-1">📋</div><p class="text-sm font-medium">Input Resep</p><p class="text-[10px] text-gray-500 dark:text-gray-400">Resep baru</p></button>
+        <button onclick="openModule('preview_persediaan.html','Persediaan')" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center hover:border-orange-accent dark:border-orange-600 hover:bg-green-50 transition cursor-pointer card-shadow"><div class="text-2xl mb-1">⚠</div><p class="text-sm font-medium">Lihat Defecta</p><p class="text-[10px] text-gray-500 dark:text-gray-400">4 butuh reorder</p></button>
+        <button onclick="openModule('preview_pembelian.html','Pembelian')" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center hover:border-orange-accent dark:border-orange-600 hover:bg-green-50 transition cursor-pointer card-shadow"><div class="text-2xl mb-1">📋</div><p class="text-sm font-medium">Buat PO</p><p class="text-[10px] text-gray-500 dark:text-gray-400">Pesan ke supplier</p></button>
+        <button onclick="switchTab('settings')" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center hover:border-orange-accent dark:border-orange-600 hover:bg-green-50 transition cursor-pointer card-shadow"><div class="text-2xl mb-1">⚙️</div><p class="text-sm font-medium">Settings</p><p class="text-[10px] text-gray-500 dark:text-gray-400">Profil apotek</p></button>
+      </div>
+    </div>
+
+    <!-- ==================== TAB: SETTINGS ==================== -->
+    <div id="tab-settings" class="hidden p-6"><h1 class="text-xl font-bold mb-1">⚙️ Settings</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Atur profil apotek, outlet, dan preferensi</p>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="col-span-2 space-y-4">
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow"><h3 class="font-semibold mb-4">Informasi Apotek</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="col-span-2"><label class="block text-xs font-medium mb-1">Nama Apotek <span class="text-red-500">*</span></label><input type="text" id="setting-nama" value="Apotek Sehat Sentosa" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" oninput="updateHeaderName()"></div>
+              <div class="col-span-2"><label class="block text-xs font-medium mb-1">Alamat</label><textarea rows="2" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm resize-none">Jl. Kesehatan No. 12</textarea></div>
+              <div><label class="block text-xs font-medium mb-1">Kota</label><input type="text" value="Jakarta" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+              <div><label class="block text-xs font-medium mb-1">Telepon</label><input type="text" value="021-1234567" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+              <div class="col-span-2"><label class="block text-xs font-medium mb-1">Email</label><input type="email" value="apotek@email.com" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+            </div>
+          </div>
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow"><h3 class="font-semibold mb-4">Footer Struk</h3><textarea rows="3" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm resize-none">Terima kasih telah berbelanja di Apotek Sehat Sentosa. Obat yang sudah dibeli tidak dapat ditukar/dikembalikan.</textarea></div>
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow"><h3 class="font-semibold mb-4">Preferensi Transaksi</h3>
+            <div class="flex items-center justify-between py-2">
+              <div><p class="text-sm font-medium">Validasi Apoteker untuk Obat Keras</p><p class="text-xs text-gray-500 dark:text-gray-400">Matikan agar obat keras bisa dijual tanpa persetujuan apoteker</p></div>
+              <div id="toggle-keras-validasi" class="switch-track" onclick="toggleKerasValidasi()"><div class="switch-thumb"></div></div>
+            </div>
+          </div>
+          <button onclick="saveSettings()" class="px-6 py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">💾 Simpan Pengaturan</button>
+        </div>
+        <div class="space-y-4">
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow text-center"><h3 class="font-semibold mb-3">Logo</h3><div class="w-32 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3 border border-gray-200 dark:border-gray-700 overflow-hidden" id="settings-logo-preview"><span class="text-3xl" id="settings-logo-placeholder">💊</span><img id="settings-logo-img" class="hidden w-full h-full object-contain" alt="Logo"></div><button onclick="document.getElementById('logo-input').click()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">Upload Logo</button><button onclick="removeLogo()" id="remove-logo-btn" class="hidden px-4 py-2 border border-red-200 rounded-lg text-sm text-red-600 font-medium hover:bg-red-50 transition cursor-pointer mt-2">🗑 Hapus Logo</button><p class="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Rekomendasi: 200×60px, PNG · Maks 500KB</p></div>
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow"><h3 class="font-semibold mb-3">Outlet</h3><div id="settings-outlet-list" class="space-y-2 text-sm"></div><button onclick="openOutletModal(null)" class="w-full mt-2 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:border-orange-accent dark:border-orange-600 hover:text-primary transition cursor-pointer">+ Tambah Outlet</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB: RESEP ==================== -->
+    <div id="tab-resep" class="hidden p-6"><div class="flex items-center justify-between mb-4"><div><h1 class="text-xl font-bold">Input Resep Baru</h1><p class="text-sm text-gray-500 dark:text-gray-400">Langsung input resep dari dashboard</p></div></div>
+      <div class="max-w-2xl bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 card-shadow space-y-4">
+        <div class="grid grid-cols-2 gap-3"><div><label class="block text-xs font-medium mb-1">Pasien <span class="text-red-500">*</span></label><div class="relative"><svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg><input type="text" placeholder="Cari atau input pasien..." class="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none"></div></div><div><label class="block text-xs font-medium mb-1">Dokter</label><input type="text" placeholder="Cari atau input dokter..." class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none"></div></div>
+        <div><label class="block text-xs font-medium mb-1">Tanggal Resep</label><input type="date" value="2026-06-19" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+        <div><div class="flex items-center justify-between mb-2"><span class="text-sm font-semibold">Item Resep</span><button onclick="addResepItemQuick()" class="text-xs text-accent hover:underline cursor-pointer font-medium">+ Tambah Obat</button></div><div id="quick-resep-items" class="space-y-2"><div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-sm flex items-center justify-between"><div><span class="font-medium">Paracetamol 500mg</span><div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Qty: 10 Tablet · Dosis: 3×1 · Sesudah makan</div></div><button class="text-gray-400 hover:text-red-500 cursor-pointer" onclick="this.parentElement.remove()">✕</button></div></div></div>
+        <button onclick="saveQuickResep()" class="w-full py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">💾 Simpan Resep</button>
+      </div>
+    </div>
+
+    <!-- ==================== TAB: LAPORAN (merged from preview_laporan.html) ==================== -->
+    <div id="tab-laporan" class="hidden p-6"><div class="flex items-center justify-between mb-1"><h1 class="text-xl font-bold">📈 Laporan</h1><button onclick="exportLaporanCSV()" class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">📥 Export CSV</button></div><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Ringkasan & analisis bisnis apotek</p>
+      <div class="flex gap-2 mb-4 flex-wrap">
+        <button onclick="switchSubTab('laporan','penjualan')" id="subt-laporan-penjualan" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">💰 Penjualan</button>
+        <button onclick="switchSubTab('laporan','produk')" id="subt-laporan-produk" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">🔥 Produk Terlaris</button>
+        <button onclick="switchSubTab('laporan','pembelian')" id="subt-laporan-pembelian" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📋 Pembelian</button>
+        <button onclick="switchSubTab('laporan','persediaan')" id="subt-laporan-persediaan" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📊 Persediaan</button>
+        <button onclick="switchSubTab('laporan','keuangan')" id="subt-laporan-keuangan" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">💵 Keuangan</button>
+        <button onclick="switchSubTab('laporan','kadaluarsa')" id="subt-laporan-kadaluarsa" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">⏰ Kadaluarsa</button>
+        <button onclick="switchSubTab('laporan','pelanggan')" id="subt-laporan-pelanggan" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">👥 Pelanggan</button>
+      </div>
+      <div id="sub-laporan-penjualan" class="sub-content">
+        <div class="flex gap-3 mb-4 flex-wrap"><input type="date" value="2026-06-01" class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><span class="self-center text-gray-500 dark:text-gray-400 text-sm">s/d</span><input type="date" value="2026-06-19" class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><select class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><option>Semua Outlet</option></select><button class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer">🔍 Tampilkan</button></div>
+        <div class="grid grid-cols-5 gap-3 mb-4"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Penjualan</p><p class="text-xl font-bold font-mono text-primary">Rp 42.350.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Transaksi</p><p class="text-xl font-bold font-mono">312</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Rata² / Hari</p><p class="text-xl font-bold font-mono">Rp 2.228.947</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Rata² / Transaksi</p><p class="text-xl font-bold font-mono">Rp 135.737</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Margin</p><p class="text-xl font-bold font-mono text-green-700">Rp 10.587.500</p></div></div>
+      </div>
+      <div id="sub-laporan-produk" class="sub-content hidden"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th class="px-4 py-3">#</th><th class="px-4 py-3">Produk</th><th class="px-4 py-3">Kategori</th><th class="px-4 py-3">Terjual</th><th class="px-4 py-3">Pendapatan</th><th class="px-4 py-3">Margin</th></tr></thead><tbody><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3 font-bold text-primary">1</td><td class="px-4 py-3 font-medium">Paracetamol 500mg</td><td class="px-4 py-3">Obat Bebas</td><td class="px-4 py-3 font-mono">32</td><td class="px-4 py-3 font-mono">Rp 256.000</td><td class="px-4 py-3 font-mono text-green-700">Rp 64.000</td></tr><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3 font-bold text-primary">2</td><td class="px-4 py-3 font-medium">Vitamin C 500mg</td><td class="px-4 py-3">Vitamin</td><td class="px-4 py-3 font-mono">24</td><td class="px-4 py-3 font-mono">Rp 168.000</td><td class="px-4 py-3 font-mono text-green-700">Rp 42.000</td></tr></tbody></table></div></div>
+      <div id="sub-laporan-pembelian" class="sub-content hidden"><div class="grid grid-cols-4 gap-3 mb-4"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Pembelian</p><p class="text-xl font-bold font-mono">Rp 18.500.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Faktur</p><p class="text-xl font-bold font-mono">7</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Sudah Dibayar</p><p class="text-xl font-bold font-mono text-secondary">Rp 9.244.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Sisa Hutang</p><p class="text-xl font-bold font-mono text-red-600">Rp 9.256.000</p></div></div></div>
+      <div id="sub-laporan-persediaan" class="sub-content hidden"><div class="grid grid-cols-4 gap-3 mb-4"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total SKU</p><p class="text-xl font-bold font-mono">15</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Nilai Stok</p><p class="text-xl font-bold font-mono text-primary">Rp 4.200.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-amber-200 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Stok Menipis</p><p class="text-xl font-bold font-mono text-amber-600">4</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-red-200 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Stok Habis</p><p class="text-xl font-bold font-mono text-red-600">0</p></div></div></div>
+      <div id="sub-laporan-keuangan" class="sub-content hidden"><div class="grid grid-cols-3 gap-3 mb-4"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Pemasukan</p><p class="text-xl font-bold font-mono text-secondary">Rp 42.350.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Pengeluaran</p><p class="text-xl font-bold font-mono text-red-600">Rp 18.500.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Laba Kotor</p><p class="text-xl font-bold font-mono text-primary">Rp 23.850.000</p></div></div></div>
+      <div id="sub-laporan-kadaluarsa" class="sub-content hidden"><div class="mb-4"><h3 class="font-semibold text-red-600 mb-2">🔴 Sudah Kadaluarsa (2)</h3><div class="bg-white dark:bg-gray-800 rounded-xl border border-red-200 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-red-50 text-left text-xs text-red-700 uppercase tracking-wider"><th class="px-4 py-3">Produk</th><th class="px-4 py-3">Batch</th><th class="px-4 py-3">Expired</th><th class="px-4 py-3">Stok</th></tr></thead><tbody><tr><td class="px-4 py-3 font-medium">Amoxicillin 500mg</td><td class="px-4 py-3">AMX-0324</td><td class="px-4 py-3 text-red-600">15 Mar 2026</td><td class="px-4 py-3">10 strip</td></tr></tbody></table></div></div></div>
+      <div id="sub-laporan-pelanggan" class="sub-content hidden"><div class="grid grid-cols-4 gap-3 mb-4"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Pelanggan</p><p class="text-xl font-bold font-mono">128</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Member</p><p class="text-xl font-bold font-mono text-primary">42</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Baru Bulan Ini</p><p class="text-xl font-bold font-mono text-secondary">12</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Poin</p><p class="text-xl font-bold font-mono text-accent">8.450</p></div></div></div>
+    </div>
+
+    <!-- ==================== TAB: KEUANGAN (merged) ==================== -->
+    <div id="tab-keuangan" class="hidden p-6"><h1 class="text-xl font-bold mb-1">💵 Keuangan</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Transaksi, utang & piutang usaha</p>
+      <div class="flex gap-2 mb-4">
+        <button onclick="switchSubTab('keuangan','transaksi')" id="subt-keuangan-transaksi" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">💳 Transaksi</button>
+        <button onclick="switchSubTab('keuangan','riwayat')" id="subt-keuangan-riwayat" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📋 Riwayat</button>
+        <button onclick="switchSubTab('keuangan','utang')" id="subt-keuangan-utang" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📤 Utang</button>
+        <button onclick="switchSubTab('keuangan','piutang')" id="subt-keuangan-piutang" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📥 Piutang</button>
+      </div>
+      <div id="sub-keuangan-transaksi" class="sub-content">
+        <div class="grid grid-cols-3 gap-4"><div class="col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 card-shadow"><h3 class="font-semibold mb-4">Input Transaksi Baru</h3><div class="space-y-3"><div class="grid grid-cols-2 gap-3"><div><label class="block text-xs font-medium mb-1">Tipe</label><select class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><option>Pemasukan</option><option>Pengeluaran</option></select></div><div><label class="block text-xs font-medium mb-1">Tanggal</label><input type="date" value="2026-06-20" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div></div><div><label class="block text-xs font-medium mb-1">Kategori</label><select class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><option>Operasional</option><option>Gaji</option><option>Sewa</option><option>Listrik/Air</option></select></div><div class="grid grid-cols-2 gap-3"><div><label class="block text-xs font-medium mb-1">Jumlah</label><input type="number" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono"></div><div><label class="block text-xs font-medium mb-1">Metode</label><select class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><option>Tunai</option><option>Transfer</option></select></div></div><div><label class="block text-xs font-medium mb-1">Keterangan</label><textarea rows="2" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm resize-none"></textarea></div><button class="px-6 py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">💾 Simpan</button></div></div><div class="space-y-3"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Saldo Kas</p><p class="text-xl font-bold font-mono text-primary mt-1">Rp 3.450.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Pemasukan Bulan Ini</p><p class="text-xl font-bold font-mono text-secondary mt-1">Rp 42.850.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Pengeluaran Bulan Ini</p><p class="text-xl font-bold font-mono text-red-600 mt-1">Rp 18.950.000</p></div></div></div>
+      </div>
+      <div id="sub-keuangan-riwayat" class="sub-content hidden"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th class="px-4 py-3">Tanggal</th><th class="px-4 py-3">Tipe</th><th class="px-4 py-3">Kategori</th><th class="px-4 py-3">Keterangan</th><th class="px-4 py-3">Jumlah</th></tr></thead><tbody><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3">19 Jun</td><td class="px-4 py-3"><span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Pemasukan</span></td><td class="px-4 py-3">Pemasukan Lain</td><td class="px-4 py-3">Sisa kas shift</td><td class="px-4 py-3 font-mono text-secondary">+100.000</td></tr><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3">18 Jun</td><td class="px-4 py-3"><span class="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">Pengeluaran</span></td><td class="px-4 py-3">Operasional</td><td class="px-4 py-3">ATK</td><td class="px-4 py-3 font-mono text-red-600">-75.000</td></tr></tbody></table></div></div>
+      <div id="sub-keuangan-utang" class="sub-content hidden"><div class="grid grid-cols-4 gap-3 mb-4"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Utang</p><p class="text-xl font-bold font-mono text-red-600">Rp 9.256.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Jatuh Tempo</p><p class="text-xl font-bold font-mono text-amber-600">Rp 4.500.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Supplier</p><p class="text-xl font-bold font-mono">2</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Faktur</p><p class="text-xl font-bold font-mono">3</p></div></div></div>
+      <div id="sub-keuangan-piutang" class="sub-content hidden"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 card-shadow text-center"><div class="text-5xl mb-3">📥</div><p class="text-gray-500 dark:text-gray-400">Belum ada piutang usaha tercatat.</p><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Piutang muncul saat ada penjualan kredit ke institusi.</p><button class="mt-4 px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer">+ Catat Piutang</button></div></div>
+    </div>
+
+    <!-- ==================== TAB: KONSINYASI (merged) ==================== -->
+    <div id="tab-konsinyasi" class="hidden p-6"><h1 class="text-xl font-bold mb-1">🤝 Konsinyasi</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Barang titipan dari supplier</p>
+      <div class="flex gap-2 mb-4">
+        <button onclick="switchSubTab('konsinyasi','masuk')" id="subt-konsinyasi-masuk" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">📥 Barang Masuk</button>
+        <button onclick="switchSubTab('konsinyasi','stok')" id="subt-konsinyasi-stok" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📦 Stok</button>
+        <button onclick="switchSubTab('konsinyasi','retur')" id="subt-konsinyasi-retur" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">↩️ <span class="nav-text">Retur</span></button>
+        <button onclick="switchSubTab('konsinyasi','status')" id="subt-konsinyasi-status" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📊 Status</button>
+      </div>
+      <div id="sub-konsinyasi-masuk" class="sub-content"><div class="flex items-center justify-between mb-3"><button class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">+ Input Konsinyasi</button></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th class="px-4 py-3">No. Konsinyasi</th><th class="px-4 py-3">Supplier</th><th class="px-4 py-3">Tanggal</th><th class="px-4 py-3">Item</th><th class="px-4 py-3">Nilai</th><th class="px-4 py-3">Status</th></tr></thead><tbody><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3 font-mono text-accent">KONS-000003</td><td class="px-4 py-3">PT. Kimia Farma</td><td class="px-4 py-3">10 Jun 2026</td><td class="px-4 py-3">8 item</td><td class="px-4 py-3 font-mono">Rp 12.500.000</td><td class="px-4 py-3"><span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Aktif</span></td></tr></tbody></table></div></div>
+      <div id="sub-konsinyasi-stok" class="sub-content hidden"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th class="px-4 py-3">Produk</th><th class="px-4 py-3">Supplier</th><th class="px-4 py-3">Batch</th><th class="px-4 py-3">Stok Awal</th><th class="px-4 py-3">Terjual</th><th class="px-4 py-3">Sisa</th></tr></thead><tbody><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3">Vitamin C 500mg</td><td class="px-4 py-3">PT. Kimia Farma</td><td class="px-4 py-3">VC-0326</td><td class="px-4 py-3 font-mono">50</td><td class="px-4 py-3 font-mono text-secondary">32</td><td class="px-4 py-3 font-mono font-bold">18</td></tr></tbody></table></div></div>
+      <div id="sub-konsinyasi-retur" class="sub-content hidden"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th class="px-4 py-3">No. Retur</th><th class="px-4 py-3">Konsinyasi</th><th class="px-4 py-3">Supplier</th><th class="px-4 py-3">Tanggal</th><th class="px-4 py-3">Nilai</th></tr></thead><tbody><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3 font-mono text-accent">RTK-000001</td><td class="px-4 py-3">KONS-000003</td><td class="px-4 py-3">PT. Kimia Farma</td><td class="px-4 py-3">12 Jun 2026</td><td class="px-4 py-3 font-mono">Rp 850.000</td></tr></tbody></table></div></div>
+      <div id="sub-konsinyasi-status" class="sub-content hidden"><div class="grid grid-cols-4 gap-3 mb-4"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Barang Masuk</p><p class="text-xl font-bold font-mono">Rp 26.000.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total Terjual</p><p class="text-xl font-bold font-mono text-secondary">Rp 16.100.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Sisa Stok</p><p class="text-xl font-bold font-mono text-amber-600">Rp 9.050.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Retur</p><p class="text-xl font-bold font-mono text-red-600">Rp 850.000</p></div></div></div>
+    </div>
+
+    <!-- ==================== TAB: AKUNTANSI (merged) ==================== -->
+    <div id="tab-akuntansi" class="hidden p-6"><h1 class="text-xl font-bold mb-1">📖 Akuntansi</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Buku besar, aktiva & daftar akun</p>
+      <div class="flex gap-2 mb-4">
+        <button onclick="switchSubTab('akuntansi','bukubesar')" id="subt-akuntansi-bukubesar" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">📖 Buku Besar</button>
+        <button onclick="switchSubTab('akuntansi','aktiva')" id="subt-akuntansi-aktiva" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">🏢 Aktiva Tetap</button>
+        <button onclick="switchSubTab('akuntansi','coa')" id="subt-akuntansi-coa" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📋 Daftar Akun</button>
+      </div>
+      <div id="sub-akuntansi-bukubesar" class="sub-content"><div class="flex gap-3 mb-4"><select class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><option>Kas & Bank</option><option>Persediaan</option><option>Hutang Usaha</option></select><input type="date" value="2026-06-01" class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><button class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer">🔍</button></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th class="px-4 py-3">Tanggal</th><th class="px-4 py-3">Keterangan</th><th class="px-4 py-3">Debit</th><th class="px-4 py-3">Kredit</th><th class="px-4 py-3">Saldo</th></tr></thead><tbody><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3">19 Jun</td><td class="px-4 py-3">Penjualan QRIS</td><td class="px-4 py-3 font-mono text-secondary">187.500</td><td class="px-4 py-3">—</td><td class="px-4 py-3 font-mono font-bold">3.450.000</td></tr><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3">18 Jun</td><td class="px-4 py-3">Penjualan Tunai</td><td class="px-4 py-3 font-mono text-secondary">94.000</td><td class="px-4 py-3">—</td><td class="px-4 py-3 font-mono font-bold">5.262.500</td></tr></tbody></table></div></div>
+      <div id="sub-akuntansi-aktiva" class="sub-content hidden"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th class="px-4 py-3">Kode</th><th class="px-4 py-3">Nama</th><th class="px-4 py-3">Kategori</th><th class="px-4 py-3">Harga Perolehan</th><th class="px-4 py-3">Nilai Buku</th></tr></thead><tbody><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3 font-mono">AT-001</td><td class="px-4 py-3">Ruko Apotek</td><td class="px-4 py-3">Bangunan</td><td class="px-4 py-3 font-mono">500.000.000</td><td class="px-4 py-3 font-mono">350.000.000</td></tr></tbody></table></div></div>
+      <div id="sub-akuntansi-coa" class="sub-content hidden"><div class="grid grid-cols-2 gap-4"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><h3 class="font-bold text-sm text-primary mb-2">1. ASET</h3><div class="text-sm space-y-1"><div class="flex justify-between py-1 border-b border-gray-50"><span>Kas & Bank</span><span class="font-mono text-gray-500 dark:text-gray-400">1001</span></div><div class="flex justify-between py-1"><span>Piutang Usaha</span><span class="font-mono text-gray-500 dark:text-gray-400">1101</span></div></div></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><h3 class="font-bold text-sm text-red-600 mb-2">2. KEWAJIBAN</h3><div class="text-sm"><div class="flex justify-between py-1"><span>Hutang Usaha</span><span class="font-mono text-gray-500 dark:text-gray-400">2001</span></div></div></div></div></div>
+    </div>
+
+    <!-- ==================== TAB: PAJAK (merged) ==================== -->
+    <div id="tab-pajak" class="hidden p-6"><h1 class="text-xl font-bold mb-1">🧾 Pajak</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">PPN Masukan & Keluaran</p>
+      <div class="flex gap-2 mb-4">
+        <button onclick="switchSubTab('pajak','masuk')" id="subt-pajak-masuk" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">📥 PPN Masukan</button>
+        <button onclick="switchSubTab('pajak','keluar')" id="subt-pajak-keluar" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📤 PPN Keluaran</button>
+      </div>
+      <div id="sub-pajak-masuk" class="sub-content"><div class="grid grid-cols-4 gap-3 mb-4"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total PPN Masukan</p><p class="text-xl font-bold font-mono text-primary">Rp 1.850.000</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Sudah Dikreditkan</p><p class="text-xl font-bold font-mono text-secondary">Rp 924.400</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Belum Dikreditkan</p><p class="text-xl font-bold font-mono text-amber-600">Rp 925.600</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Faktur Pajak</p><p class="text-xl font-bold font-mono">7</p></div></div></div>
+      <div id="sub-pajak-keluar" class="sub-content hidden"><div class="grid grid-cols-4 gap-3 mb-4"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">PPN Keluaran</p><p class="text-xl font-bold font-mono text-primary">Rp 4.196.396</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">DPP Penjualan</p><p class="text-xl font-bold font-mono">Rp 38.149.059</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-red-200 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Kurang Bayar</p><p class="text-xl font-bold font-mono text-red-600">Rp 2.346.396</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Batas Setor</p><p class="text-xl font-bold font-mono">15 Jul 2026</p></div></div></div>
+    </div>
+
+    <!-- ==================== TAB: MANAJEMEN PENGGUNA (merged) ==================== -->
+    <div id="tab-manajemen" class="hidden p-6"><h1 class="text-xl font-bold mb-1">🛡️ Manajemen Pengguna</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Akun, outlet, shift, log & hak akses</p>
+      <div class="flex gap-2 mb-4 flex-wrap">
+        <button onclick="switchSubTab('manajemen','pengguna')" id="subt-manajemen-pengguna" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">👤 Pengguna</button>
+        <button onclick="switchSubTab('manajemen','outlet')" id="subt-manajemen-outlet" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">🏪 Outlet</button>
+        <button onclick="switchSubTab('manajemen','shift')" id="subt-manajemen-shift" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">🕐 Riwayat Shift</button>
+        <button onclick="switchSubTab('manajemen','log')" id="subt-manajemen-log" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📝 Log</button>
+        <button onclick="switchSubTab('manajemen','hakmenu')" id="subt-manajemen-hakmenu" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">🔑 Hak Menu</button>
+        <button onclick="switchSubTab('manajemen','hakaktifitas')" id="subt-manajemen-hakaktifitas" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">🛡️ Hak Aktivitas</button>
+      </div>
+      <div id="sub-manajemen-pengguna" class="sub-content"><div class="flex items-center justify-between mb-3"><button class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">+ Tambah</button></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th class="px-4 py-3">Nama</th><th class="px-4 py-3">Email</th><th class="px-4 py-3">Peran</th><th class="px-4 py-3">Status</th></tr></thead><tbody><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3 font-medium">Dr. Andi Pratama</td><td class="px-4 py-3 text-gray-500 dark:text-gray-400">admin@apotek.com</td><td class="px-4 py-3"><span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">Admin</span></td><td class="px-4 py-3"><span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Aktif</span></td></tr><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3 font-medium">Kasir A</td><td class="px-4 py-3 text-gray-500 dark:text-gray-400">kasir1@apotek.com</td><td class="px-4 py-3"><span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Kasir</span></td><td class="px-4 py-3"><span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Aktif</span></td></tr></tbody></table></div></div>
+      <div id="sub-manajemen-outlet" class="sub-content hidden"><div class="grid grid-cols-3 gap-4"><div class="bg-white dark:bg-gray-800 rounded-xl border-2 border-orange-accent dark:border-orange-600 p-5 card-shadow"><h3 class="font-bold text-lg">Outlet Pusat</h3><p class="text-sm text-gray-500 dark:text-gray-400">📍 Jl. Kesehatan No. 12</p><p class="text-sm text-gray-500 dark:text-gray-400">📞 021-1234567</p></div><div class="bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 p-5 flex items-center justify-center cursor-pointer hover:border-orange-accent dark:border-orange-600 hover:bg-green-50 transition"><div class="text-center text-gray-500 dark:text-gray-400">+ Tambah Outlet</div></div></div></div>
+      <div id="sub-manajemen-shift" class="sub-content hidden"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th class="px-4 py-3">Tanggal</th><th class="px-4 py-3">Kasir</th><th class="px-4 py-3">Buka</th><th class="px-4 py-3">Tutup</th><th class="px-4 py-3">Modal</th><th class="px-4 py-3">Kas Akhir</th><th class="px-4 py-3">Selisih</th></tr></thead><tbody><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3">19 Jun 2026</td><td class="px-4 py-3">Kasir A</td><td class="px-4 py-3">08:00</td><td class="px-4 py-3 italic">-</td><td class="px-4 py-3 font-mono">100.000</td><td class="px-4 py-3 italic">-</td><td class="px-4 py-3 italic">-</td></tr></tbody></table></div></div>
+      <div id="sub-manajemen-log" class="sub-content hidden"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th class="px-4 py-3">Waktu</th><th class="px-4 py-3">Pengguna</th><th class="px-4 py-3">Aktivitas</th><th class="px-4 py-3">Modul</th></tr></thead><tbody><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3 text-xs">19 Jun 08:30</td><td class="px-4 py-3">Dr. Andi</td><td class="px-4 py-3"><span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">Login</span></td><td class="px-4 py-3">Auth</td></tr><tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3 text-xs">19 Jun 10:30</td><td class="px-4 py-3">Kasir A</td><td class="px-4 py-3"><span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Transaksi</span></td><td class="px-4 py-3">Kasir</td></tr></tbody></table></div></div>
+      <div id="sub-manajemen-hakmenu" class="sub-content hidden"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase"><th class="px-4 py-3">Menu</th><th class="px-4 py-3 text-center">Owner</th><th class="px-4 py-3 text-center">Admin</th><th class="px-4 py-3 text-center">Kasir</th></tr></thead><tbody><tr class="border-b border-gray-100"><td class="px-4 py-3">Dashboard</td><td class="px-4 py-3 text-center text-secondary">✔</td><td class="px-4 py-3 text-center text-secondary">✔</td><td class="px-4 py-3">—</td></tr><tr class="border-b border-gray-100"><td class="px-4 py-3">Kasir</td><td class="px-4 py-3 text-center text-secondary">✔</td><td class="px-4 py-3 text-center text-secondary">✔</td><td class="px-4 py-3 text-center text-secondary">✔</td></tr><tr class="border-b border-gray-100"><td class="px-4 py-3">Manajemen Pengguna</td><td class="px-4 py-3 text-center text-secondary">✔</td><td class="px-4 py-3 text-center text-red-400">✕</td><td class="px-4 py-3 text-center text-red-400">✕</td></tr></tbody></table></div></div>
+      <div id="sub-manajemen-hakaktifitas" class="sub-content hidden"><div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 card-shadow overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase"><th class="px-4 py-3">Aktivitas</th><th class="px-4 py-3 text-center">Owner</th><th class="px-4 py-3 text-center">Admin</th><th class="px-4 py-3 text-center">Kasir</th></tr></thead><tbody><tr class="border-b border-gray-100"><td class="px-4 py-3">Void Transaksi</td><td class="px-4 py-3 text-center text-secondary">✔</td><td class="px-4 py-3 text-center text-secondary">✔</td><td class="px-4 py-3 text-center text-red-400">✕</td></tr><tr class="border-b border-gray-100"><td class="px-4 py-3">Edit Harga</td><td class="px-4 py-3 text-center text-secondary">✔</td><td class="px-4 py-3 text-center text-secondary">✔</td><td class="px-4 py-3 text-center text-red-400">✕</td></tr></tbody></table></div></div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-text-primary text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"></div>
+
+<script>
+// ===== SIDEBAR ACCORDION =====
+function toggleSection(header) {
+  const content = header.nextElementSibling;
+  const isCollapsed = content.classList.contains('collapsed');
+  if (isCollapsed) {
+    content.classList.remove('collapsed');
+    header.classList.remove('collapsed');
+  } else {
+    content.classList.add('collapsed');
+    header.classList.add('collapsed');
+  }
+}
+
+// ===== NAVIGATION =====
+const INLINE_TABS = ['home','settings','resep','laporan','keuangan','konsinyasi','akuntansi','pajak','manajemen'];
+const TAB_LABELS = {
+  resep:'Input Resep', settings:'Settings', laporan:'Semua Laporan', keuangan:'Keuangan',
+  konsinyasi:'Konsinyasi', akuntansi:'Akuntansi', pajak:'Pajak', manajemen:'Manajemen Pengguna'
+};
+
+function hideIframe() {
+  document.getElementById('tab-module').classList.add('hidden');
+  document.getElementById('module-iframe').src = '';
+}
+
+function switchTab(tab) {
+  // Hide all tab contents
+  const allContents = document.querySelectorAll('[id^="tab-"]');
+  allContents.forEach(el => {
+      // Only hide if it's a direct tab content container
+      if(el.tagName === 'DIV' && el.parentElement.tagName !== 'TR') {
+          el.classList.add('hidden');
+      }
+  });
+  
+  // Show target content
+  const target = document.getElementById('tab-' + tab);
+  if(target) target.classList.remove('hidden');
+  
+  // Update Nav visual state
+  const allNavs = document.querySelectorAll('[id^="nav-"]');
+  allNavs.forEach(nav => {
+      // Remove active classes
+      nav.classList.remove('nav-active', 'bg-orange-accent', 'dark:bg-orange-600', 'text-white');
+      // Add inactive classes
+      nav.classList.add('text-gray-500', 'dark:text-gray-400', 'hover:bg-gray-50', 'dark:hover:bg-gray-900');
+  });
+  
+  // Set target nav active
+  const targetNav = document.getElementById('nav-' + tab);
+  if(targetNav) {
+      targetNav.classList.add('nav-active', 'bg-orange-accent', 'dark:bg-orange-600', 'text-white');
+      targetNav.classList.remove('text-gray-500', 'dark:text-gray-400', 'hover:bg-gray-50', 'dark:hover:bg-gray-900');
+  }
+}
+
+
+function openModule(url, title) {
+  hideIframe();
+  INLINE_TABS.forEach(t => {
+    const el = document.getElementById('tab-'+t);
+    if (el) el.classList.add('hidden');
+  });
+  document.getElementById('tab-module').classList.remove('hidden');
+  document.getElementById('module-title').textContent = title || 'Modul';
+  document.getElementById('module-iframe').src = url;
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.sidebar-link').forEach(l => {
+    if (l.textContent.trim().includes(title)) l.classList.add('active');
+  });
+}
+
+function closeModule() {
+  hideIframe();
+  switchTab('home');
+}
+
+function goHome() { closeModule(); }
+
+// ===== SUB-TAB SWITCHER =====
+function switchSubTab(module, tab) {
+  const prefix = 'sub-' + module;
+  document.querySelectorAll('[id^="'+prefix+'"]').forEach(el => {
+    if (el.tagName === 'DIV') el.classList.add('hidden');
+  });
+  const target = document.getElementById(prefix + '-' + tab);
+  if (target) target.classList.remove('hidden');
+  document.querySelectorAll('[id^="subt-'+module+'"]').forEach(btn => {
+    btn.classList.remove('active','bg-orange-accent dark:bg-orange-600','text-white');
+    btn.classList.add('bg-white dark:bg-gray-800','border','border-gray-300');
+  });
+  const activeBtn = document.getElementById('subt-'+module+'-'+tab);
+  if (activeBtn) { activeBtn.classList.add('active','bg-orange-accent dark:bg-orange-600','text-white'); activeBtn.classList.remove('bg-white dark:bg-gray-800','border','border-gray-300'); }
+}
+
+// ===== LOGIN CHECK =====
+function checkLogin() {
+  if (!localStorage.getItem('apotek_pos_logged_in')) {
+    window.location.href = 'login.html';
+    return false;
+  }
+  return true;
+}
+
+// ===== INIT HEADER =====
+function initHeader() {
+  if (!checkLogin()) return;
+  const profileName = localStorage.getItem('apotek_pos_profile_name') || 'ApotekPOS';
+  const outlet = localStorage.getItem('apotek_pos_outlet') || 'Outlet Pusat';
+  const role = localStorage.getItem('apotek_pos_role') || 'admin';
+  const user = localStorage.getItem('apotek_pos_user') || 'User';
+  const avatar = localStorage.getItem('apotek_pos_avatar') || 'A';
+
+  document.getElementById('header-name').innerHTML = '💊 ' + profileName;
+  document.getElementById('header-outlet').textContent = outlet;
+  const roleLabels = { owner: '👑 Owner', admin: '🏥 Admin (Apoteker)', kasir: '💰 Kasir' };
+  document.getElementById('header-role').textContent = roleLabels[role] || role;
+  document.getElementById('header-avatar').textContent = avatar;
+  document.getElementById('menu-user-name').textContent = user;
+  document.getElementById('menu-user-role').textContent = roleLabels[role] || role;
+
+  // Role-based visibility
+  const kasirHidden = ['menu-master','menu-persediaan','menu-pembelian','menu-kontak','menu-konsinyasi','menu-keuangan','menu-laporan','menu-manajemen','menu-akuntansi','menu-pajak'];
+  const adminHidden = ['menu-manajemen','menu-akuntansi','menu-pajak'];
+  const sections = { 'backoffice-section':'backoffice-section','keupajak-section':'keupajak-section','laporan-section':'laporan-section' };
+
+  if (role === 'kasir') {
+    kasirHidden.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    Object.keys(sections).forEach(k => { const s = document.getElementById(sections[k]); if (s) s.style.display = 'none'; });
+    document.getElementById('nav-resep').style.display = 'none';
+    setTimeout(() => openModule('preview_kasir.html','Kasir'), 200);
+  }
+  if (role === 'admin') {
+    adminHidden.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    const keupajak = document.getElementById('keupajak-section');
+    if (keupajak) keupajak.style.display = 'none';
+  }
+}
+
+// ===== USER MENU =====
+function showUserMenu() { document.getElementById('user-menu').classList.toggle('hidden'); }
+function doLogout() {
+  localStorage.removeItem('apotek_pos_logged_in');
+  localStorage.removeItem('apotek_pos_shift_active');
+  window.location.href = 'login.html';
+}
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('user-menu');
+  const avatar = document.getElementById('header-avatar');
+  if (menu && avatar && !menu.contains(e.target) && !avatar.contains(e.target)) {
+    menu.classList.add('hidden');
+  }
+});
+
+// ===== OUTLET MANAGEMENT =====
+function getOutlets() {
+  try { return JSON.parse(localStorage.getItem('apotek_pos_outlets')) || []; } catch(e) { return []; }
+}
+function saveOutlets(outlets) {
+  localStorage.setItem('apotek_pos_outlets', JSON.stringify(outlets));
+}
+function getActiveOutletId() {
+  return localStorage.getItem('apotek_pos_outlet_id') || '';
+}
+function setActiveOutlet(id, nama) {
+  localStorage.setItem('apotek_pos_outlet_id', id);
+  localStorage.setItem('apotek_pos_outlet', nama);
+  document.getElementById('header-outlet').textContent = nama;
+  renderOutletDropdown();
+  renderSettingsOutlets();
+  refreshDashboard();
+}
+function renderOutletDropdown() {
+  const list = document.getElementById('outlet-list');
+  const outlets = getOutlets();
+  const activeId = getActiveOutletId();
+  list.innerHTML = outlets.map(o => {
+    const isActive = o.id === activeId;
+    const def = o.is_default ? ' <span class="text-[10px] text-green-600">(Default)</span>' : '';
+    return '<button onclick="setActiveOutlet(\''+o.id+'\',\''+o.nama+'\');toggleOutletDropdown()" class="w-full text-left px-3 py-1.5 text-sm rounded-lg transition cursor-pointer '+(isActive?'bg-green-50 font-medium text-primary':'hover:bg-gray-50 dark:bg-gray-900')+'">'+o.nama+def+'</button>';
+  }).join('');
+  if (!outlets.length) list.innerHTML = '<div class="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">Belum ada outlet</div>';
+}
+function toggleOutletDropdown() {
+  document.getElementById('outlet-dropdown').classList.toggle('hidden');
+  renderOutletDropdown();
+}
+function openOutletModal(id) {
+  const outlets = getOutlets();
+  document.getElementById('outlet-edit-id').value = '';
+  document.getElementById('outlet-nama').value = '';
+  document.getElementById('outlet-alamat').value = '';
+  document.getElementById('outlet-telepon').value = '';
+  document.getElementById('outlet-default').checked = false;
+  document.getElementById('outlet-delete-btn').classList.add('hidden');
+  document.getElementById('outlet-modal-title').textContent = 'Tambah Outlet';
+  if (id) {
+    const o = outlets.find(x => x.id === id);
+    if (o) {
+      document.getElementById('outlet-edit-id').value = o.id;
+      document.getElementById('outlet-nama').value = o.nama;
+      document.getElementById('outlet-alamat').value = o.alamat || '';
+      document.getElementById('outlet-telepon').value = o.telepon || '';
+      document.getElementById('outlet-default').checked = !!o.is_default;
+      document.getElementById('outlet-delete-btn').classList.remove('hidden');
+      document.getElementById('outlet-modal-title').textContent = 'Edit Outlet';
+    }
+  }
+  document.getElementById('outlet-modal').classList.remove('hidden');
+}
+function closeOutletModal() {
+  document.getElementById('outlet-modal').classList.add('hidden');
+}
+function saveOutlet() {
+  const editId = document.getElementById('outlet-edit-id').value;
+  const nama = document.getElementById('outlet-nama').value.trim();
+  if (!nama) { showToast('⚠️ Nama outlet wajib diisi'); return; }
+  let outlets = getOutlets();
+  const isDefault = document.getElementById('outlet-default').checked;
+  if (editId) {
+    outlets = outlets.map(o => {
+      if (o.id === editId) { o.nama = nama; o.alamat = document.getElementById('outlet-alamat').value; o.telepon = document.getElementById('outlet-telepon').value; o.is_default = isDefault; }
+      return o;
+    });
+  } else {
+    const newId = 'outlet-' + Date.now();
+    outlets.push({ id: newId, nama, alamat: document.getElementById('outlet-alamat').value, telepon: document.getElementById('outlet-telepon').value, is_default: isDefault });
+    if (!getActiveOutletId()) setActiveOutlet(newId, nama);
+  }
+  if (isDefault) outlets.forEach(o => { if (o.id !== (editId || '')) o.is_default = false; });
+  saveOutlets(outlets);
+  closeOutletModal();
+  renderOutletDropdown();
+  renderSettingsOutlets();
+  const activeId = getActiveOutletId();
+  const activeOutlet = outlets.find(o => o.id === activeId);
+  if (activeOutlet) { document.getElementById('header-outlet').textContent = activeOutlet.nama; localStorage.setItem('apotek_pos_outlet', activeOutlet.nama); }
+  showToast('✅ Outlet disimpan');
+}
+function deleteOutlet() {
+  const editId = document.getElementById('outlet-edit-id').value;
+  if (!editId) return;
+  if (!confirm('Hapus outlet ini? Semua data terkait akan dihapus.')) return;
+  let outlets = getOutlets().filter(o => o.id !== editId);
+  saveOutlets(outlets);
+  closeOutletModal();
+  if (getActiveOutletId() === editId) {
+    const first = outlets[0];
+    if (first) setActiveOutlet(first.id, first.nama); else { localStorage.removeItem('apotek_pos_outlet_id'); localStorage.setItem('apotek_pos_outlet','Outlet Pusat'); document.getElementById('header-outlet').textContent='Outlet Pusat'; }
+  }
+  renderOutletDropdown();
+  renderSettingsOutlets();
+  showToast('🗑 Outlet dihapus');
+}
+function renderSettingsOutlets() {
+  const container = document.getElementById('settings-outlet-list');
+  const outlets = getOutlets();
+  container.innerHTML = outlets.map(o => {
+    const def = o.is_default ? '<span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Default</span>' : '';
+    return '<div class="flex items-center justify-between p-2 '+(o.is_default?'bg-green-50 rounded-lg border border-green-200':'hover:bg-gray-50 dark:bg-gray-900 rounded-lg')+'"><span>'+o.nama+'</span><div class="flex items-center gap-2">'+def+'<button onclick="openOutletModal(\''+o.id+'\')" class="text-xs text-accent hover:underline cursor-pointer">Edit</button></div></div>';
+  }).join('');
+}
+
+// ===== LOGO UPLOAD =====
+function handleLogoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 500000) { showToast('⚠️ Ukuran file maksimal 500KB'); return; }
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const dataUrl = ev.target.result;
+    localStorage.setItem('apotek_pos_logo', dataUrl);
+    applyLogo(dataUrl);
+    showToast('🖼️ Logo berhasil diupload');
+  };
+  reader.readAsDataURL(file);
+}
+function applyLogo(dataUrl) {
+  const headerImg = document.getElementById('header-logo-img');
+  const headerAvatar = document.getElementById('header-avatar');
+  const settingsImg = document.getElementById('settings-logo-img');
+  const settingsPlaceholder = document.getElementById('settings-logo-placeholder');
+  const removeBtn = document.getElementById('remove-logo-btn');
+  if (dataUrl) {
+    headerImg.src = dataUrl; headerImg.classList.remove('hidden'); headerAvatar.classList.add('hidden');
+    settingsImg.src = dataUrl; settingsImg.classList.remove('hidden'); settingsPlaceholder.classList.add('hidden');
+    if (removeBtn) removeBtn.classList.remove('hidden');
+  }
+}
+function removeLogo() {
+  localStorage.removeItem('apotek_pos_logo');
+  document.getElementById('header-logo-img').classList.add('hidden');
+  document.getElementById('header-avatar').classList.remove('hidden');
+  document.getElementById('settings-logo-img').classList.add('hidden');
+  document.getElementById('settings-logo-placeholder').classList.remove('hidden');
+  document.getElementById('remove-logo-btn').classList.add('hidden');
+  showToast('🗑 Logo dihapus');
+}
+
+// ===== DASHBOARD DATE FILTER =====
+function refreshDashboard() {
+  const start = document.getElementById('dashboard-date-start').value;
+  const end = document.getElementById('dashboard-date-end').value;
+  if (!start || !end) return;
+  const d1 = new Date(start), d2 = new Date(end);
+  const days = Math.max(1, Math.round((d2-d1)/(1000*60*60*24)) + 1);
+  const baseSales = 2450000; const baseProfit = 612500; const baseTrx = 18; const baseCash = 1200000;
+  const baseTuslah = 85000; const baseLowStock=4; const baseExpiry=3; const baseDebt=9256000;
+  const factor = days / 7;
+  document.querySelector('#tab-home .grid:first-of-type + div .kpi-card:nth-child(1) .font-mono').textContent = 'Rp ' + Math.round(baseSales*factor).toLocaleString('id');
+  document.querySelector('#tab-home .grid:first-of-type + div .kpi-card:nth-child(2) .font-mono').textContent = 'Rp ' + Math.round(baseProfit*factor).toLocaleString('id');
+  document.querySelector('#tab-home .grid:first-of-type + div .kpi-card:nth-child(3) .font-mono').textContent = Math.round(baseTrx*factor);
+  document.querySelector('#tab-home .grid:first-of-type + div .kpi-card:nth-child(4) .font-mono').textContent = 'Rp ' + Math.round(baseCash*factor).toLocaleString('id');
+  document.getElementById('today-date').textContent = (days===1 ? new Date(start).toLocaleDateString('id',{day:'numeric',month:'long',year:'numeric'}) : new Date(start).toLocaleDateString('id',{day:'numeric',month:'short'})+' - '+new Date(end).toLocaleDateString('id',{day:'numeric',month:'long',year:'numeric'}));
+  showToast('🔍 Dashboard diperbarui untuk '+days+' hari');
+}
+
+// ===== CSV EXPORT =====
+function exportLaporanCSV() {
+  const activeSub = document.querySelector('#tab-laporan .sub-content:not(.hidden)');
+  if (!activeSub) { showToast('⚠️ Pilih sub-tab laporan dulu'); return; }
+  const subId = activeSub.id.replace('sub-laporan-','');
+  let headers = [], rows = [];
+  if (subId === 'penjualan') {
+    headers = ['Metrik','Nilai'];
+    activeSub.querySelectorAll('.kpi-card,.grid .bg-white dark:bg-gray-800.rounded-xl').forEach(card => {
+      const label = (card.querySelector('p:first-child')||card.querySelector('p')).textContent.trim();
+      const val = (card.querySelector('.font-mono')||card.querySelector('.text-xl')).textContent.trim();
+      rows.push([label,val]);
+    });
+  } else if (subId === 'produk') {
+    const table = activeSub.querySelector('table');
+    if (table) {
+      headers = []; table.querySelectorAll('thead th').forEach(th => headers.push(th.textContent.trim()));
+      table.querySelectorAll('tbody tr').forEach(tr => { const r=[]; tr.querySelectorAll('td').forEach(td => r.push(td.textContent.trim().replace(/,/g,' '))); rows.push(r); });
+    }
+  } else {
+    activeSub.querySelectorAll('.kpi-card,.grid .bg-white dark:bg-gray-800.rounded-xl').forEach(card => {
+      const label = (card.querySelector('p:first-child')||card.querySelector('p')).textContent.trim();
+      const val = (card.querySelector('.font-mono')||card.querySelector('.text-xl')).textContent.trim();
+      rows.push([label,val]);
+    });
+    headers = ['Metrik','Nilai'];
+    if (!rows.length) {
+      const table = activeSub.querySelector('table');
+      if (table) {
+        headers = []; table.querySelectorAll('thead th').forEach(th => headers.push(th.textContent.trim()));
+        table.querySelectorAll('tbody tr').forEach(tr => { const r=[]; tr.querySelectorAll('td').forEach(td => r.push(td.textContent.trim().replace(/,/g,' '))); rows.push(r); });
+      }
+    }
+  }
+  if (!rows.length) { showToast('⚠️ Tidak ada data untuk diexport'); return; }
+  const BOM = '\uFEFF';
+  const csv = BOM + headers.join(',') + '\n' + rows.map(r => r.map(c => '"'+c+'"').join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='laporan_'+subId+'_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('📥 CSV terdownload');
+}
+
+// ===== KERAS BYPASS TOGGLE =====
+function toggleKerasValidasi() {
+  const current = localStorage.getItem('apotek_pos_keras_validasi') !== 'false';
+  const newVal = !current;
+  localStorage.setItem('apotek_pos_keras_validasi', String(newVal));
+  updateKerasToggleUI();
+}
+function updateKerasToggleUI() {
+  const isOn = localStorage.getItem('apotek_pos_keras_validasi') !== 'false';
+  const track = document.getElementById('toggle-keras-validasi');
+  if (track) { if (isOn) track.classList.add('on'); else track.classList.remove('on'); }
+}
+function isKerasValidasiRequired() {
+  return localStorage.getItem('apotek_pos_keras_validasi') !== 'false';
+}
+
+// ===== SETTINGS =====
+function updateHeaderName() {
+  const name = document.getElementById('setting-nama').value || 'Apotek';
+  const logo = localStorage.getItem('apotek_pos_logo');
+  document.getElementById('header-name').innerHTML = (logo?'':'💊 ') + name;
+}
+function saveSettings() {
+  const nama = document.getElementById('setting-nama').value || 'Apotek Sehat Sentosa';
+  localStorage.setItem('apotek_pos_profile_name', nama);
+  updateHeaderName();
+  showToast('⚙️ Pengaturan disimpan');
+}
+
+// ===== QUICK RESEP =====
+function addResepItemQuick() {
+  const container = document.getElementById('quick-resep-items');
+  const div = document.createElement('div');
+  div.className = 'bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-sm flex items-center justify-between';
+  div.innerHTML = '<div><span class="font-medium">Obat Baru</span><div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Qty: 10 · Dosis: 2×1</div></div><button class="text-gray-400 hover:text-red-500 cursor-pointer" onclick="this.parentElement.remove()">✕</button>';
+  container.appendChild(div);
+}
+function saveQuickResep() {
+  showToast('📋 Resep tersimpan — lanjut ke Kasir untuk penebusan');
+}
+
+// ===== TOAST =====
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 3000);
+}
+
+// ===== INIT =====
+document.getElementById('today-date').textContent = new Date().toLocaleDateString('id', {day:'numeric',month:'long',year:'numeric'});
+// Ensure default outlets exist
+if (!localStorage.getItem('apotek_pos_outlets')) {
+  saveOutlets([
+    { id:'outlet-1', nama:'Pusat', alamat:'Jl. Kesehatan No. 12', telepon:'021-1234567', is_default:true },
+    { id:'outlet-2', nama:'Cabang 2', alamat:'Jl. Merdeka No. 45', telepon:'021-7654321', is_default:false }
+  ]);
+}
+if (!localStorage.getItem('apotek_pos_outlet_id')) {
+  setActiveOutlet('outlet-1','Pusat');
+}
+initHeader();
+renderOutletDropdown();
+renderSettingsOutlets();
+applyLogo(localStorage.getItem('apotek_pos_logo'));
+updateKerasToggleUI();
+// Close outlet dropdown on outside click
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('outlet-dropdown');
+  const btn = document.getElementById('header-outlet-btn');
+  if (dd && btn && !dd.contains(e.target) && !btn.contains(e.target)) {
+    dd.classList.add('hidden');
+  }
+});
+
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.action === 'openModule') {
+    openModule(e.data.url, e.data.title);
+  }
+});
+</script>
+
+
+<script>
+  function toggleSidebar() {
+      const sidebar = document.getElementById('global-sidebar');
+      const texts = sidebar.querySelectorAll('.nav-text');
+      if (window._shadcnToggle) { window._shadcnToggle(); return; }
+      const isCollapsed = sidebar.classList.contains('w-16');
+      
+      if(isCollapsed) {
+          sidebar.classList.remove('w-16');
+          sidebar.classList.add('w-56');
+          texts.forEach(t => t.classList.remove('hidden'));
+      } else {
+          sidebar.classList.remove('w-56');
+          sidebar.classList.add('w-16');
+          texts.forEach(t => t.classList.add('hidden'));
+      }
+  }
+</script>
+
+<script>
+  function comingSoon(feature) {
+      alert(`Fitur ${feature} sedang dalam tahap pengembangan dan akan terhubung ke Modul Kamera / Supabase di rilis selanjutnya.`);
+  }
+</script>
+<!-- FIX: Upload handler + Excel download + Logo upload -->
+<script>
+(function(){
+  // Generic file upload to base64
+  window.handleFileUpload = function(accept, callback) {
+    var input = document.createElement('input');
+    input.type = 'file';
+    if (accept) input.accept = accept;
+    input.onchange = function(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(ev) { callback(file.name, ev.target.result); };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
+  
+  // Excel/CSV template download
+  window.downloadTemplate = function(filename, headers, sampleData) {
+    var csv = headers.join(',') + '\n';
+    if (sampleData && sampleData.length) {
+      sampleData.forEach(function(row) { csv += row.join(',') + '\n'; });
+    }
+    var blob = new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    showToast('📥 ' + filename + ' didownload');
+  };
+  
+  // Logo upload in Settings
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+      // Find logo upload area
+      var logoUploads = document.querySelectorAll('[onclick*="logo"], .logo-upload, #logo-upload');
+      logoUploads.forEach(function(el) {
+        el.style.cursor = 'pointer';
+        el.onclick = function() {
+          handleFileUpload('image/*', function(name, dataUrl) {
+            localStorage.setItem('apotek_pos_logo', dataUrl);
+            var imgs = document.querySelectorAll('#header-logo-img, .logo-preview');
+            imgs.forEach(function(img) { img.src = dataUrl; img.classList.remove('hidden'); });
+            showToast('✅ Logo diupload');
+          });
+        };
+      });
+      
+      // Hook "Template" download buttons
+      document.querySelectorAll('button').forEach(function(btn) {
+        var txt = btn.textContent || '';
+        if (txt.includes('Template') && txt.includes('.xlsx')) {
+          btn.onclick = function() {
+            if (txt.includes('Pelanggan')) {
+              downloadTemplate('Template_Pelanggan.csv', ['Kode','Nama','No HP','Email','Alamat','Tipe'], [['PEL-001','Nama Pelanggan','081234567890','email@mail.com','Alamat','pelanggan']]);
+            } else if (txt.includes('Produk')) {
+              downloadTemplate('Template_Produk.csv', ['Kode','Nama Dagang','Nama Generik','Kategori','Golongan','Harga Beli','Harga Jual','Stok'], [['PROD-001','Produk Baru','Generik','Obat Bebas','bebas','5000','8000','100']]);
+            } else {
+              downloadTemplate('Template.csv', ['Kolom1','Kolom2'], [['isi1','isi2']]);
+            }
+          };
+        }
+      });
+      
+      // Hook drag-drop zones
+      document.querySelectorAll('.border-dashed').forEach(function(zone) {
+        if (!zone.onclick || zone.onclick.toString().includes('handleFileUpload')) return;
+        zone.style.cursor = 'pointer';
+        zone.onclick = function() { handleFileUpload('.xlsx,.xls,.csv', function(name, data) {
+          zone.innerHTML = '<p class="text-xs text-green-600">✅ ' + name + ' — siap diimport</p>';
+          showToast('📄 File siap: ' + name);
+        }); };
+        zone.ondragover = function(e) { e.preventDefault(); zone.classList.add('border-orange-accent'); };
+        zone.ondragleave = function() { zone.classList.remove('border-orange-accent'); };
+        zone.ondrop = function(e) { e.preventDefault(); zone.classList.remove('border-orange-accent'); var f = e.dataTransfer.files[0]; if (f) { var r = new FileReader(); r.onload = function(ev) { zone.innerHTML = '<p class="text-xs text-green-600">✅ ' + f.name + '</p>'; showToast('📄 File siap: ' + f.name); }; r.readAsDataURL(f); } };
+      });
+    }, 800);
+  });
+  
+  function showToast(msg) {
+    var t = document.getElementById('toast');
+    if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg'; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.remove('hidden'); t.style.opacity = '1';
+    setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.classList.add('hidden'); }, 300); }, 2000);
+  }
+  
+  // Restore logo on load
+  var savedLogo = localStorage.getItem('apotek_pos_logo');
+  if (savedLogo) {
+    var imgs = document.querySelectorAll('#header-logo-img, .logo-preview');
+    imgs.forEach(function(img) { img.src = savedLogo; img.classList.remove('hidden'); });
+  }
+})();
+</script>
+<!-- ===== SIDEBAR ENGINE (shadcn-inspired) ===== -->
+<script>
+(function(){
+  var SIDEBAR_KEY = 'sidebar_collapsed';
+  var sidebar = document.getElementById('global-sidebar');
+  if (!sidebar) return;
+  
+  // Restore state
+  var collapsed = localStorage.getItem(SIDEBAR_KEY) === 'true';
+  var isMobile = window.innerWidth < 768;
+  
+  function applyState() {
+    if (collapsed && !isMobile) {
+      sidebar.setAttribute('data-state', 'collapsed');
+    } else {
+      sidebar.setAttribute('data-state', 'expanded');
+    }
+    // Update toggle button icon rotation
+    var icon = document.getElementById('sidebar-toggle-icon');
+    if (icon) icon.style.transform = (collapsed && !isMobile) ? 'rotate(90deg)' : 'rotate(0deg)';
+    var btn = document.getElementById('sidebar-toggle-btn');
+    if (btn) {
+      btn.style.background = (collapsed && !isMobile) ? 'var(--tw-bg-opacity,1) #f3f4f6' : '';
+      btn.style.boxShadow = (collapsed && !isMobile) ? '0 0 0 2px #FF5A1F40' : '';
+    }
+    if (isMobile) {
+      sidebar.setAttribute('data-mobile-open', sidebar.dataset.mobileOpen === 'true' ? '' : null);
+      // Show overlay on mobile
+      var overlay = document.getElementById('sidebar-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'sidebar-overlay';
+        overlay.className = 'sidebar-overlay';
+        overlay.onclick = toggleSidebar;
+        document.body.appendChild(overlay);
+      }
+      overlay.classList.toggle('active', sidebar.dataset.mobileOpen === 'true');
+    }
+  }
+  
+  window._shadcnToggle = function() {
+    if (isMobile) { sidebar.dataset.mobileOpen = sidebar.dataset.mobileOpen === 'true' ? 'false' : 'true'; applyState(); }
+    else { collapsed = !collapsed; localStorage.setItem(SIDEBAR_KEY, collapsed); applyState(); }
+  };
+  window.toggleSidebar = window._shadcnToggle;
+  // Legacy compatibility
+  window.toggleSidebar = function() {
+    if (isMobile) {
+      sidebar.dataset.mobileOpen = sidebar.dataset.mobileOpen === 'true' ? 'false' : 'true';
+      applyState();
+    } else {
+      collapsed = !collapsed;
+      localStorage.setItem(SIDEBAR_KEY, collapsed);
+      applyState();
+    }
+  };
+  
+  // Keyboard shortcut: Ctrl+B
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+      e.preventDefault();
+      toggleSidebar();
+    }
+  });
+  
+  // Mobile resize detection
+  window.addEventListener('resize', function() {
+    isMobile = window.innerWidth < 768;
+    applyState();
+  });
+  
+  // Add tooltip attributes to sidebar links
+  sidebar.querySelectorAll('.sidebar-link, .accordion-header').forEach(function(el) {
+    if (!el.dataset.tooltip) {
+      var txt = el.textContent.replace(/[📂💰📋📊👥📢📈⚙️🛡️🏠📱🧪💵🤝]/g,'').trim() || el.textContent.trim();
+      el.setAttribute('data-tooltip', txt.substring(0, 30));
+    }
+  });
+  
+  applyState();
+  
+  // Expose for header button
+  window._sidebarCollapsed = function() { return collapsed; };
+})();
+</script>
+<!-- FIX: Dashboard real data from localStorage -->
+<script>
+(function(){
+  function getTxns() { try { return JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) { return []; } }
+  function getProducts() { try { return JSON.parse(localStorage.getItem('apotek_products_master') || '[]'); } catch(e) { return []; } }
+  
+  function updateDashboardKPIs() {
+    var today = new Date().toISOString().split('T')[0];
+    var txns = getTxns();
+    var todayTxns = txns.filter(function(t) { return (t.created_at || '').startsWith(today) && t.status !== 'void'; });
+    var allTxns = txns.filter(function(t) { return t.status !== 'void'; });
+    var products = getProducts();
+    
+    // Revenue & count
+    var revenue = todayTxns.reduce(function(s,t) { return s + (t.total || t.subtotal || 0); }, 0);
+    var count = todayTxns.length;
+    
+    // Laba kotor: total - (harga_beli × qty) per item
+    var laba = 0;
+    todayTxns.forEach(function(t) {
+      (t.items||[]).forEach(function(item) {
+        var prod = products.find(function(p) { return (p.kode||p.id) === (item.productId||item.kode); });
+        var beli = parseInt(prod ? prod.harga_beli : 0) || 0;
+        var jual = parseInt(item.price) || 0;
+        var qty = parseInt(item.qty) || 0;
+        laba += (jual - beli) * qty;
+      });
+    });
+    
+    // Payment breakdown
+    var methods = {}; var cashTotal = 0;
+    todayTxns.forEach(function(t) {
+      var m = (t.metode_bayar || 'tunai');
+      methods[m] = (methods[m] || 0) + 1;
+      if (m === 'tunai') cashTotal += (t.total || t.subtotal || 0);
+    });
+    
+    var methStr = Object.keys(methods).map(function(k) { return methods[k]+' '+k.toUpperCase(); }).join(' · ');
+    
+    // Stok menipis (below minimum, still active)
+    var lowStock = products.filter(function(p) { return p.is_aktif !== false && (p.stok||0) > 0 && (p.stok||0) <= (p.stok_minimum||5); }).length;
+    
+    // Hutang: sum unpaid invoices
+    var invs = []; try { invs = JSON.parse(localStorage.getItem('apotek_purchase_invoices')||'[]'); } catch(e) {}
+    var hutang = invs.filter(function(i) { return i.status !== 'lunas'; }).reduce(function(s,i) { return s + ((i.total||0)-(i.dibayar||0)); }, 0);
+    
+    // Update KPI cards by ID
+    var setVal = function(id, val, sub) {
+      var el = document.getElementById(id);
+      if (el) { el.textContent = val; if (sub) { var s = document.getElementById(id+'-sub'); if (s) s.textContent = sub; } }
+    };
+    setVal('kpi-penjualan', 'Rp '+revenue.toLocaleString('id'), '↑ Hari ini');
+    setVal('kpi-keuntungan', 'Rp '+laba.toLocaleString('id'), 'Margin laba kotor');
+    setVal('kpi-transaksi', count, methStr || '0 transaksi');
+    setVal('kpi-cash', 'Rp '+cashTotal.toLocaleString('id'), 'Total kas masuk');
+    setVal('kpi-tuslah', 'Rp 0', 'Belum ada racikan');
+    setVal('kpi-stok-menipis', lowStock, lowStock > 0 ? 'Butuh reorder' : 'Stok aman');
+    setVal('kpi-batch-exp', '0', 'Tidak ada kadaluarsa');
+    setVal('kpi-hutang', 'Rp '+hutang.toLocaleString('id'), hutang > 0 ? 'Supplier belum lunas' : 'Tidak ada hutang');
+    
+    // Top products
+    var prodCounts = {};
+    txns.forEach(function(t) { (t.items || []).forEach(function(i) { prodCounts[i.name] = (prodCounts[i.name] || 0) + (i.qty || 1); }); });
+    var sorted = Object.entries(prodCounts).sort(function(a,b) { return b[1] - a[1]; }).slice(0, 5);
+    var maxCount = sorted[0] ? sorted[0][1] : 1;
+    var topList = document.querySelector('#tab-home .space-y-2.max-h-80, #tab-home [class*="space-y-2"][class*="max-h"]');
+    if (topList && sorted.length) {
+      topList.innerHTML = sorted.map(function(e, i) {
+        return '<div class="flex items-center gap-3"><span class="text-sm font-bold text-primary w-6">#'+(i+1)+'</span><div class="flex-1"><div class="flex justify-between text-sm"><span>'+e[0]+'</span><span class="font-mono">'+e[1]+'</span></div><div class="h-1.5 mt-1 bg-gray-100 rounded-full"><div class="h-full bg-orange-accent rounded-full" style="width:'+Math.round(e[1]/maxCount*100)+'%"></div></div></div></div>';
+      }).join('');
+    }
+  }
+  
+  // Run on page load + storage changes
+  document.addEventListener('DOMContentLoaded', function() { setTimeout(updateDashboardKPIs, 500); });
+  window.addEventListener('storage', function(e) {
+    if (e.key === 'apotek_pos_transactions' || e.key === 'apotek_products_master') updateDashboardKPIs();
+  });
+  
+  // Hook refresh button
+  var origRefresh = window.refreshDashboard;
+  window.refreshDashboard = function() {
+    if (origRefresh) origRefresh();
+    updateDashboardKPIs();
+  };
+})();
+</script>
+</body>
+</html>

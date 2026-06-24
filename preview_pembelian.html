@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview — Pembelian | Apotek POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { mono: ['Fira Code','Consolas','monospace'], sans: ['Fira Sans','Inter','system-ui','sans-serif'] },
+      colors: { 
+        primary:'#15803D', secondary:'#22C55E', accent:'#0369A1', 
+        surface:'#F0FDF4', 'text-primary':'#14532D', 'text-secondary':'#166534',
+        'dashboard-gray': '#F4F5F7', 'orange-accent': '#FF5A1F'
+      }
+    }
+  }
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Finexy Custom Styles & Dark Mode Fixes */
+  .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); }
+  .dark .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5); }
+  .row-hover:hover { background: #f9fafb; }
+  .dark .row-hover:hover { background: #1f2937; }
+  .nav-active { background: #111827; color: #ffffff; }
+  .dark .nav-active { background: #FF5A1F; color: #ffffff; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-bridge.js"></script>
+<script src="js/product-schema.js"></script>
+
+<script>
+  // Dark Mode Logic
+  function toggleDarkMode() {
+    document.documentElement.classList.toggle('dark');
+    const isDark = document.documentElement.classList.contains('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeIcon(isDark);
+  }
+  
+  function updateThemeIcon(isDark) {
+    const sunIcon = document.getElementById('sun-icon');
+    const moonIcon = document.getElementById('moon-icon');
+    if(sunIcon && moonIcon) {
+        if(isDark) {
+            sunIcon.classList.remove('scale-100', 'opacity-100');
+            sunIcon.classList.add('scale-0', 'opacity-0');
+            moonIcon.classList.remove('scale-0', 'opacity-0');
+            moonIcon.classList.add('scale-100', 'opacity-100');
+        } else {
+            moonIcon.classList.remove('scale-100', 'opacity-100');
+            moonIcon.classList.add('scale-0', 'opacity-0');
+            sunIcon.classList.remove('scale-0', 'opacity-0');
+            sunIcon.classList.add('scale-100', 'opacity-100');
+        }
+    }
+  }
+
+  // Init theme
+  if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  window.addEventListener('DOMContentLoaded', () => {
+    updateThemeIcon(document.documentElement.classList.contains('dark'));
+  });
+</script>
+
+</head>
+<body class="bg-dashboard-gray dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors">
+
+<header class="sticky top-0 z-40 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 card-shadow">
+  <div class="flex items-center gap-3">
+    <span id="module-header-name" class="text-lg font-bold text-primary font-mono">💊 ApotekPOS</span>
+
+    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Pembelian</span>
+  </div>
+  <div class="flex items-center gap-3">
+    
+    <!-- Theme Toggle -->
+    <button onclick="toggleDarkMode()" class="group relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 bg-transparent text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+      <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 scale-0 opacity-0 transition-all absolute text-gray-400">
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+      </svg>
+      <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 scale-100 opacity-100 transition-all absolute text-gray-500 dark:text-gray-400">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2"></path>
+        <path d="M12 20v2"></path>
+        <path d="m4.93 4.93 1.41 1.41"></path>
+        <path d="m17.66 17.66 1.41 1.41"></path>
+        <path d="M2 12h2"></path>
+        <path d="M20 12h2"></path>
+        <path d="m6.34 17.66-1.41 1.41"></path>
+        <path d="m19.07 4.93-1.41 1.41"></path>
+      </svg>
+    </button>
+
+    <span class="text-xs text-gray-500 dark:text-gray-400">Outlet Pusat · Admin (Apoteker)</span>
+    <div class="w-8 h-8 rounded-full bg-orange-accent dark:bg-orange-600 flex items-center justify-center text-white text-sm font-bold">A</div>
+  </div>
+</header>
+
+<div class="flex h-[calc(100vh-56px)]">
+  <!-- SIDEBAR -->
+  <aside id="global-sidebar" class="w-56 transition-all duration-300 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col py-2 overflow-y-auto">
+    <div class="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"><span class="nav-text">Pembelian</span></div>
+    <button onclick="switchTab('po')" id="nav-po" class="nav-active flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium transition cursor-pointer">📋 <span class="nav-text">Purchase Order</span></button>
+    <button onclick="switchTab('faktur')" id="nav-faktur" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">📦 <span class="nav-text">Faktur / Terima</span></button>
+    <button onclick="switchTab('retur')" id="nav-retur" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">↩️ <span class="nav-text">Retur</span></button>
+    <button onclick="switchTab('hutang')" id="nav-hutang" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">💰 <span class="nav-text">Hutang Supplier</span></button>
+    <button onclick="switchTab('riwayat')" id="nav-riwayat" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">📜 <span class="nav-text">Riwayat</span></button>
+    <hr class="my-3 mx-3 border-gray-100">
+    <a href="preview_persediaan.html" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer"><span class="nav-text">Persediaan</span></a>
+    <a href="preview_kasir.html" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer"><span class="nav-text">Kasir</span></a>
+  </aside>
+
+  <main class="flex-1 overflow-y-auto p-6">
+
+    <!-- ========== TAB: PURCHASE ORDER ========== -->
+    <div id="tab-po">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Purchase Order</h1><p class="text-sm text-gray-500 dark:text-gray-400">Buat & lacak pesanan ke supplier/PBF</p></div>
+        <div class="flex gap-2">
+          <button onclick="generateFromDefecta()" class="px-4 py-2 border border-accent text-accent rounded-lg text-sm font-medium hover:bg-sky-50 transition cursor-pointer flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+            Generate dari Defecta
+          </button>
+          <button onclick="openPoForm()" class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            Buat PO Baru
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-3 mb-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total PO Bulan Ini</p><p class="text-2xl font-bold font-mono">7</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Nilai PO Bulan Ini</p><p class="text-2xl font-bold font-mono text-primary">Rp 12.5jt</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-amber-200 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Menunggu Diterima</p><p class="text-2xl font-bold font-mono text-amber-600">3 PO</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-green-200 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Selesai Bulan Ini</p><p class="text-2xl font-bold font-mono text-green-700">4 PO</p></div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">No. PO</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Supplier</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Tanggal</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Item</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Estimasi</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Status</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Aksi</th></tr></thead>
+            <tbody class="divide-y divide-gray-100" id="po-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== TAB: FAKTUR ========== -->
+    <div id="tab-faktur" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Faktur Pembelian</h1><p class="text-sm text-gray-500 dark:text-gray-400">Penerimaan barang & faktur dari supplier</p></div>
+        <button onclick="openReceiveForm()" class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Input Faktur Baru
+        </button>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">No. Faktur</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Supplier</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Tanggal</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Total</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Dibayar</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Sisa</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Status</th></tr></thead>
+          <tbody class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== TAB: RETUR ========== -->
+    <div id="tab-retur" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Retur Pembelian</h1><p class="text-sm text-gray-500 dark:text-gray-400">Pengembalian barang ke supplier (rusak, salah kirim, kadaluarsa)</p></div>
+        <button onclick="openReturForm()" class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Buat Retur
+        </button>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">No. Retur</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Faktur Asal</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Supplier</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Tanggal</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Total</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Alasan</th></tr></thead>
+          <tbody class="divide-y divide-gray-100" id="faktur-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== TAB: HUTANG ========== -->
+    <div id="tab-hutang" class="hidden">
+      <h1 class="text-xl font-bold mb-1">Hutang Supplier</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Ringkasan hutang ke supplier/PBF yang belum lunas</p>
+      <div class="flex items-center gap-2 mb-4 text-xs">
+        <span class="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium">🤖 Auto-generated</span>
+        <span class="text-gray-500 dark:text-gray-400">Dari faktur diterima yang belum lunas. Update jumlah_dibayar di faktur masing-masing.</span>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Supplier</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Tipe</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Jml Faktur</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Total Hutang</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Sudah Dibayar</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Sisa</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Jatuh Tempo Terdekat</th></tr></thead>
+          <tbody class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== TAB: RIWAYAT ========== -->
+    <div id="tab-riwayat" class="hidden">
+      <h1 class="text-xl font-bold mb-1">Riwayat Pembelian</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Gabungan PO + Faktur + Retur per supplier & tanggal</p>
+      <div class="flex items-center gap-2 mb-3 text-xs">
+        <span class="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium">🤖 Auto-generated</span>
+        <span class="text-gray-500 dark:text-gray-400">UNION query dari purchase_orders + purchase_invoices + purchase_returns. Tidak ada input manual.</span>
+      </div>
+      <div class="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 mb-3">
+        <div><label class="text-xs font-medium">Dari</label><input type="date" value="2026-06-01" class="ml-1 px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs"></div>
+        <div><label class="text-xs font-medium">Sampai</label><input type="date" value="2026-06-19" class="ml-1 px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs"></div>
+        <select class="py-1.5 px-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs cursor-pointer"><option>Semua Supplier</option><option>Kimia Farma</option><option>Indofarma</option><option>Anugrah Argon</option></select>
+        <select class="py-1.5 px-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs cursor-pointer"><option>Semua Tipe</option><option>PO</option><option>Faktur</option><option>Retur</option></select>
+        <button class="px-3 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded text-xs font-medium hover:bg-orange-700 transition cursor-pointer">Filter</button>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Tanggal</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Tipe</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">No. Dokumen</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Supplier</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Total</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Status</th></tr></thead>
+          <tbody class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===== DEFECTA GENERATOR MODAL ===== -->
+<div id="defecta-modal" class="hidden modal-overlay" onclick="if(event.target===this)closeDefectaModal()">
+  <div class="modal-box wide p-6" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-4">
+      <div><h3 class="font-bold text-lg">Generate PO dari Defecta</h3><p class="text-xs text-gray-500 dark:text-gray-400">Pilih supplier untuk setiap produk defecta</p></div>
+      <button onclick="closeDefectaModal()" class="text-gray-400 hover:text-red-500 text-xl leading-none">&times;</button>
+    </div>
+    <div class="max-h-[55vh] overflow-y-auto">
+      <table class="w-full text-sm" id="defecta-items-table">
+        <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left sticky top-0"><th class="px-3 py-2 text-xs font-semibold">Produk</th><th class="px-3 py-2 text-xs font-semibold text-center w-16">Stok</th><th class="px-3 py-2 text-xs font-semibold text-center w-16">Min</th><th class="px-3 py-2 text-xs font-semibold text-center w-16">Butuh</th><th class="px-3 py-2 text-xs font-semibold">Supplier</th></tr></thead>
+        <tbody class="divide-y divide-gray-100" id="defecta-items-body"></tbody>
+      </table>
+    </div>
+    <div id="defecta-summary" class="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg text-xs text-gray-500 dark:text-gray-400 hidden"></div>
+    <div class="flex gap-2 mt-4">
+      <button onclick="generatePoPerSupplier()" class="flex-1 px-4 py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer">📋 Generate PO per Supplier</button>
+      <button onclick="closeDefectaModal()" class="px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">Batal</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 80; align-items: center; justify-content: center; }
+  .modal-overlay:not(.hidden) { display: flex; }
+  .hidden { display: none !important; }
+  .modal-box { background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto; }
+  .modal-box.wide { max-width: 640px; }
+</style>
+
+<!-- ===== PO FORM SLIDE-OVER ===== -->
+<div id="po-overlay" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"></div>
+<div id="po-slideover" class="hidden fixed right-0 top-0 z-50 h-full w-[640px] max-w-[95vw] bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+  <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+    <h3 class="text-lg font-bold">Purchase Order Baru</h3>
+    <button onclick="closePoForm()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-5 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="block text-xs font-medium mb-1">Supplier <span class="text-red-500">*</span></label><select id="po-supplier" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer"><option>Kimia Farma</option><option>Indofarma</option><option>Anugrah Argon</option></select></div>
+      <div><label class="block text-xs font-medium mb-1">Tanggal PO</label><input id="po-date" type="date" value="2026-06-19" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+    </div>
+    <div><label class="block text-xs font-medium mb-1">Catatan</label><input id="po-note" type="text" placeholder="Catatan internal..." class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-semibold">Item Pesanan</span>
+        <button onclick="addDraftPoItem()" class="text-xs text-accent hover:underline cursor-pointer">+ Tambah Produk</button>
+      </div>
+      <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-gray-50 dark:bg-gray-900"><th class="px-3 py-2 text-left font-medium text-xs">Produk</th><th class="px-3 py-2 text-center font-medium text-xs w-20">Qty</th><th class="px-3 py-2 font-medium text-xs">Satuan</th><th class="px-3 py-2 text-right font-medium text-xs w-28">Est. Harga</th><th class="px-3 py-2 w-8"></th></tr></thead>
+          <tbody id="po-items-body" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 flex justify-between">
+      <span class="text-sm font-medium">Total Estimasi</span>
+      <span id="po-total-estimate" class="text-lg font-bold font-mono text-primary">Rp 0</span>
+    </div>
+  </div>
+  <div class="p-4 border-t border-gray-100 flex gap-3">
+    <button onclick="saveManualPO('DRAFT')" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">Simpan Draft</button>
+    <button onclick="saveManualPO('DIKIRIM')" class="flex-1 py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">✉️ Simpan & Kirim</button>
+  </div>
+</div>
+
+<!-- ===== PENERIMAAN BARANG FORM ===== -->
+<div id="receive-overlay" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"></div>
+<div id="receive-slideover" class="hidden fixed right-0 top-0 z-50 h-full w-[680px] max-w-[95vw] bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+  <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+    <div>
+      <h3 class="text-lg font-bold">Penerimaan Barang</h3>
+      <p class="text-xs text-gray-500 dark:text-gray-400" id="receive-header-info"><span class="font-mono font-semibold">PO-000001</span> · Kimia Farma · 19 Jun 2026</p>
+    </div>
+    <button onclick="closeReceiveForm()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-5 space-y-4">
+    <div class="grid grid-cols-3 gap-3">
+      <div><label class="block text-xs font-medium mb-1">No. Faktur Supplier</label><input type="text" value="INV/2026/0456" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      <div><label class="block text-xs font-medium mb-1">Tgl. Faktur</label><input type="date" value="2026-06-19" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      <div><label class="block text-xs font-medium mb-1">Jatuh Tempo</label><input type="date" value="2026-07-19" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+    </div>
+
+    <div>
+      <h4 class="text-sm font-semibold mb-3">Item Diterima</h4>
+
+      <!-- Item 1 -->
+      <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-3 bg-gray-50 dark:bg-gray-900/50">
+        <div class="flex items-center gap-2 mb-3">
+          <input type="checkbox" checked class="rounded text-primary">
+          <span class="text-sm font-medium">Paracetamol 500mg</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400">(Dipesan: 5 Box · Sudah diterima: 0)</span>
+        </div>
+        <div class="grid grid-cols-3 gap-3 mb-3">
+          <div><label class="block text-[10px] font-medium mb-0.5">Qty Diterima</label><div class="flex items-center gap-1"><input type="number" value="3" class="w-16 px-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"><span class="text-xs text-gray-500 dark:text-gray-400">Box</span></div></div>
+          <div><label class="block text-[10px] font-medium mb-0.5">Harga Aktual/Box</label><div class="relative"><span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">Rp</span><input type="number" value="352000" class="w-full pl-7 pr-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"></div></div>
+        </div>
+        <div class="space-y-2">
+          <div class="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Batch</div>
+          <div class="grid grid-cols-5 gap-2 items-end bg-white dark:bg-gray-800 border border-green-200 rounded-lg p-2">
+            <div class="col-span-2"><label class="text-[10px]">No. Batch</label><input type="text" value="BN-2026-018" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"></div>
+            <div><label class="text-[10px]">Expiry</label><input type="date" value="2028-12-15" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs"></div>
+            <div><label class="text-[10px]">Qty</label><input type="number" value="2" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"></div>
+            <div class="flex items-end gap-1"><span class="text-xs text-gray-500 dark:text-gray-400">Box</span><button class="text-gray-400 hover:text-red-500 cursor-pointer text-xs mb-1">✕</button></div>
+          </div>
+          <div class="grid grid-cols-5 gap-2 items-end bg-white dark:bg-gray-800 border border-green-200 rounded-lg p-2">
+            <div class="col-span-2"><label class="text-[10px]">No. Batch</label><input type="text" value="BN-2026-019" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"></div>
+            <div><label class="text-[10px]">Expiry</label><input type="date" value="2028-12-20" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs"></div>
+            <div><label class="text-[10px]">Qty</label><input type="number" value="1" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"></div>
+            <div class="flex items-end gap-1"><span class="text-xs text-gray-500 dark:text-gray-400">Box</span><button class="text-gray-400 hover:text-red-500 cursor-pointer text-xs mb-1">✕</button></div>
+          </div>
+          <button class="text-[10px] text-accent hover:underline cursor-pointer">+ Tambah Batch</button>
+        </div>
+      </div>
+
+      <!-- Item 2 -->
+      <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-3 bg-gray-50 dark:bg-gray-900/50">
+        <div class="flex items-center gap-2 mb-3">
+          <input type="checkbox" checked class="rounded text-primary">
+          <span class="text-sm font-medium">Amoxicillin 500mg</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400">(Dipesan: 3 Box · Sudah diterima: 0)</span>
+        </div>
+        <div class="grid grid-cols-3 gap-3 mb-3">
+          <div><label class="block text-[10px] font-medium mb-0.5">Qty Diterima</label><div class="flex items-center gap-1"><input type="number" value="1" class="w-16 px-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"><span class="text-xs text-gray-500 dark:text-gray-400">Box</span></div></div>
+          <div><label class="block text-[10px] font-medium mb-0.5">Harga Aktual/Box</label><div class="relative"><span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">Rp</span><input type="number" value="905000" class="w-full pl-7 pr-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"></div></div>
+        </div>
+        <div class="space-y-2">
+          <div class="grid grid-cols-5 gap-2 items-end bg-white dark:bg-gray-800 border border-green-200 rounded-lg p-2">
+            <div class="col-span-2"><label class="text-[10px]">No. Batch</label><input type="text" value="BN-2026-022" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"></div>
+            <div><label class="text-[10px]">Expiry</label><input type="date" value="2028-10-05" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs"></div>
+            <div><label class="text-[10px]">Qty</label><input type="number" value="1" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"></div>
+            <div class="flex items-end gap-1"><span class="text-xs text-gray-500 dark:text-gray-400">Box</span></div>
+          </div>
+          <button class="text-[10px] text-accent hover:underline cursor-pointer">+ Tambah Batch</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-orange-accent dark:bg-orange-600/5 border border-orange-accent dark:border-orange-600/20 rounded-xl p-3 text-sm">
+      <div class="flex items-center gap-2 mb-2">
+        <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/></svg>
+        <span class="font-semibold text-primary">Total Faktur</span>
+      </div>
+      <p class="font-mono text-xl font-bold text-primary">Rp 1.961.000</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">3 Box Paracetamol × Rp 352.000 + 1 Box Amoxicillin × Rp 905.000</p>
+    </div>
+  </div>
+  <div class="p-4 border-t border-gray-100 flex gap-3">
+    <button onclick="closeReceiveForm()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">Simpan Draft</button>
+    <button onclick="confirmReceive()" class="flex-1 py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">✅ Terima Barang</button>
+  </div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] bg-text-primary text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"></div>
+
+<!-- ===== RETUR FORM ===== -->
+<div id="retur-overlay" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onclick="closeReturForm()"></div>
+<div id="retur-slideover" class="hidden fixed right-0 top-0 z-50 h-full w-[600px] max-w-[95vw] bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+  <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+    <h3 class="text-lg font-bold">Retur Pembelian Baru</h3>
+    <button onclick="closeReturForm()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-5 space-y-4">
+    <div class="grid grid-cols-3 gap-3">
+      <div class="col-span-2">
+        <label class="block text-xs font-medium mb-1">Faktur Asal <span class="text-red-500">*</span></label>
+        <select id="retur-faktur" onchange="loadFakturItems()" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+          <option value="">-- Pilih Faktur --</option>
+        </select>
+      </div>
+      <div><label class="block text-xs font-medium mb-1">Tanggal</label><input type="date" value="2026-06-19" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+    </div>
+    <div>
+      <label class="block text-xs font-medium mb-1">Alasan <span class="text-red-500">*</span></label>
+      <select id="retur-alasan" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+        <option>Rusak / Pecah</option><option>Salah Kirim</option><option>Mendekati Kadaluarsa (ED &lt; 6 bulan)</option><option>Sudah Kadaluarsa</option><option>Lainnya...</option>
+      </select>
+    </div>
+    <div><label class="block text-xs font-medium mb-1">Catatan</label><input type="text" placeholder="Keterangan tambahan..." class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+
+    <div id="retur-items-container">
+      <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center text-gray-400 text-sm">
+        <svg class="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z"/></svg>
+        <p>Pilih faktur terlebih dahulu</p>
+        <p class="text-xs mt-1">Item & batch dari faktur akan muncul di sini</p>
+      </div>
+    </div>
+
+    <div id="retur-total-box" class="hidden bg-red-50 border border-red-200 rounded-xl p-3">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium text-red-800">Total Retur</span>
+        <span id="retur-total" class="font-mono font-bold text-red-700 text-lg">Rp 0</span>
+      </div>
+    </div>
+  </div>
+  <div class="p-4 border-t border-gray-100 flex gap-3">
+    <button onclick="closeReturForm()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">Batal</button>
+    <button onclick="saveRetur()" class="flex-1 py-2.5 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 transition cursor-pointer card-shadow">↩️ Simpan Retur</button>
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  // Hide all tab contents
+  const allContents = document.querySelectorAll('[id^="tab-"]');
+  allContents.forEach(el => {
+      // Only hide if it's a direct tab content container
+      if(el.tagName === 'DIV' && el.parentElement.tagName !== 'TR') {
+          el.classList.add('hidden');
+      }
+  });
+  
+  // Show target content
+  const target = document.getElementById('tab-' + tab);
+  if(target) target.classList.remove('hidden');
+  
+  // Update Nav visual state
+  const allNavs = document.querySelectorAll('[id^="nav-"]');
+  allNavs.forEach(nav => {
+      // Remove active classes
+      nav.classList.remove('nav-active', 'bg-orange-accent', 'dark:bg-orange-600', 'text-white');
+      // Add inactive classes
+      nav.classList.add('text-gray-500', 'dark:text-gray-400', 'hover:bg-gray-50', 'dark:hover:bg-gray-900');
+  });
+  
+  // Set target nav active
+  const targetNav = document.getElementById('nav-' + tab);
+  if(targetNav) {
+      targetNav.classList.add('nav-active', 'bg-orange-accent', 'dark:bg-orange-600', 'text-white');
+      targetNav.classList.remove('text-gray-500', 'dark:text-gray-400', 'hover:bg-gray-50', 'dark:hover:bg-gray-900');
+  }
+}
+
+
+async function openPoForm() {
+  document.getElementById('po-overlay').classList.remove('hidden');
+  document.getElementById('po-slideover').classList.remove('hidden');
+  if (!poDraftItems.length) {
+    await hydratePoForm();
+  } else {
+    renderPoDraftItems();
+  }
+}
+function closePoForm() {
+  document.getElementById('po-overlay').classList.add('hidden');
+  document.getElementById('po-slideover').classList.add('hidden');
+}
+
+let poDraftItems = [];
+let poDraftProducts = [];
+let poDraftSuppliers = [];
+
+function formatPembelianDate(dateValue) {
+  const d = dateValue ? new Date(dateValue) : new Date();
+  return d.getDate()+' '+['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][d.getMonth()]+' '+d.getFullYear();
+}
+
+function renderPoDraftItems() {
+  const tbody = document.getElementById('po-items-body');
+  const totalEl = document.getElementById('po-total-estimate');
+  if (!tbody || !totalEl) return;
+
+  if (!poDraftItems.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="px-3 py-6 text-center text-xs text-gray-400">Belum ada item. Klik "+ Tambah Produk" atau generate dari defecta.</td></tr>';
+    totalEl.textContent = 'Rp 0';
+    return;
+  }
+
+  tbody.innerHTML = poDraftItems.map((item, index) => {
+    return '<tr>' +
+      '<td class="px-3 py-2 text-xs font-medium">' + item.nama + '</td>' +
+      '<td class="px-3 py-2 text-center"><input type="number" min="1" value="' + item.qty + '" onchange="updateDraftPoItem(' + index + ', \'' + 'qty' + '\', this.value)" class="w-16 px-2 py-1 border border-gray-200 rounded text-xs font-mono text-center"></td>' +
+      '<td class="px-3 py-2 text-xs">' + item.satuan + '</td>' +
+      '<td class="px-3 py-2 text-right"><input type="number" min="0" value="' + item.harga + '" onchange="updateDraftPoItem(' + index + ', \'' + 'harga' + '\', this.value)" class="w-24 px-2 py-1 border border-gray-200 rounded text-xs font-mono text-right"></td>' +
+      '<td class="px-3 py-2 text-right"><button onclick="removeDraftPoItem(' + index + ')" class="text-red-500 hover:underline text-xs">Hapus</button></td>' +
+    '</tr>';
+  }).join('');
+
+  const total = poDraftItems.reduce((sum, item) => sum + ((Number(item.qty) || 0) * (Number(item.harga) || 0)), 0);
+  totalEl.textContent = 'Rp ' + total.toLocaleString('id');
+}
+
+function updateDraftPoItem(index, field, value) {
+  if (!poDraftItems[index]) return;
+  poDraftItems[index][field] = Math.max(1, parseInt(value || (field === 'harga' ? '0' : '1'), 10) || 0);
+  if (field === 'harga') poDraftItems[index][field] = Math.max(0, parseInt(value || '0', 10) || 0);
+  renderPoDraftItems();
+}
+
+function removeDraftPoItem(index) {
+  poDraftItems.splice(index, 1);
+  renderPoDraftItems();
+}
+
+function addDraftPoItem() {
+  if (!poDraftProducts.length) {
+    showPembToast('⚠️ Produk belum siap dimuat');
+    return;
+  }
+  const product = poDraftProducts[poDraftItems.length % poDraftProducts.length];
+  poDraftItems.push({
+    product_id: product.id || product.product_id || product.kode || '',
+    nama: product.nama_dagang || product.nama || 'Produk',
+    qty: Math.max(1, Number(product.stok_minimum || product.min || 1)),
+    satuan: product.satuan || 'Unit',
+    harga: Math.max(0, Number(product.harga_beli || product.price || 0))
+  });
+  renderPoDraftItems();
+}
+
+async function hydratePoForm() {
+  try {
+    const [productsRes, suppliersRes] = await Promise.all([
+      window.ApotekDB.getProducts(),
+      window.ApotekDB.getSuppliers()
+    ]);
+    poDraftProducts = (productsRes && productsRes.data) || [];
+    poDraftSuppliers = (suppliersRes && suppliersRes.data) || [];
+    const supplierSelect = document.getElementById('po-supplier');
+    if (supplierSelect && poDraftSuppliers.length) {
+      supplierSelect.innerHTML = poDraftSuppliers.map(function(s) {
+        const supplierName = s.nama || s.supplier_name || s.name || 'Supplier';
+        return '<option value="' + supplierName + '">' + supplierName + '</option>';
+      }).join('');
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  renderPoDraftItems();
+}
+
+async function saveManualPO(status) {
+  const supplierEl = document.getElementById('po-supplier');
+  const dateEl = document.getElementById('po-date');
+  if (!supplierEl || !dateEl) return;
+  if (!poDraftItems.length) {
+    showPembToast('⚠️ Tambahkan minimal 1 item PO');
+    return;
+  }
+
+  const current = await getPOs();
+  const lastNum = current.length > 0 ? Math.max(...current.map(function(p) {
+    if (!p.nomor) return 0;
+    const parts = p.nomor.split('-');
+    return parts.length > 1 ? parseInt(parts[1], 10) || 0 : 0;
+  })) : 0;
+
+  const poData = {
+    nomor: 'PO-' + String(lastNum + 1).padStart(6, '0'),
+    supplier: supplierEl.value,
+    tanggal: formatPembelianDate(dateEl.value),
+    status: status,
+    catatan: (document.getElementById('po-note') || {}).value || '',
+    diterima: 0,
+    items: poDraftItems.map(function(item) {
+      return {
+        nama: item.nama,
+        qty: Number(item.qty) || 1,
+        satuan: item.satuan || 'Unit',
+        harga: Number(item.harga) || 0,
+        product_id: item.product_id || null
+      };
+    })
+  };
+
+  await savePOs(poData);
+  closePoForm();
+  poDraftItems = [];
+  renderPoDraftItems();
+  await renderPOTable();
+  showPembToast(status === 'DIKIRIM' ? '✅ PO tersimpan dan dikirim' : '✅ PO draft tersimpan');
+}
+
+async function legacyOpenReceiveForm(poRef) {
+  const header = document.getElementById('receive-header-info');
+  if (poRef) {
+    header.innerHTML = '<span class="font-mono font-semibold">' + poRef + '</span> · Kimia Farma · 19 Jun 2026';
+  } else {
+    header.innerHTML = '<span class="text-gray-500 dark:text-gray-400">Tanpa PO — Faktur Langsung</span>';
+  }
+  document.getElementById('receive-overlay').classList.remove('hidden');
+  document.getElementById('receive-slideover').classList.remove('hidden');
+}
+function closeReceiveForm() {
+  document.getElementById('receive-overlay').classList.add('hidden');
+  document.getElementById('receive-slideover').classList.add('hidden');
+}
+
+async function legacyConfirmReceive() {
+  closeReceiveForm();
+
+  // Create a mock faktur and update PO
+  try {
+      let invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices')) || [];
+      const fNo = 'FK-' + Date.now().toString().slice(-6);
+      invoices.push({
+          nomor: fNo,
+          supplier: 'Supplier Default',
+          tanggal: new Date().toISOString().split('T')[0],
+          jatuh_tempo: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
+          total: 1500000,
+          status: 'BELUM LUNAS',
+          items: [{nama: 'Paracetamol', qty: 10, harga: 15000}]
+      });
+      localStorage.setItem('apotek_pos_invoices', JSON.stringify(invoices));
+
+      // Attempt to find and update PO status to SEBAGIAN or SELESAI
+      let pos = await getPOs();
+      if(pos && pos.length > 0) {
+          pos[0].status = 'SEBAGIAN'; // Mock update the first PO
+          await savePOs(pos[0]);
+          renderPOTable();
+      }
+
+      if(typeof renderFakturTable === 'function') renderFakturTable();
+  } catch(e) {
+      console.error("Error confirming receive:", e);
+  }
+
+  showPembToast(`✅ Faktur penerimaan tersimpan — stok & batch terupdate`);
+}
+
+// ===== RETUR =====
+function openReturForm() {
+  document.getElementById('retur-overlay').classList.remove('hidden');
+  document.getElementById('retur-slideover').classList.remove('hidden');
+  
+  // Load faktur dynamically
+  const select = document.getElementById('retur-faktur');
+  select.innerHTML = '<option value="">-- Pilih Faktur --</option>';
+  try {
+    const invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices')) || [];
+    invoices.forEach(inv => {
+      select.innerHTML += `<option value="${inv.nomor}">${inv.nomor} · ${inv.supplier} · Rp ${inv.total.toLocaleString('id')}</option>`;
+    });
+  } catch(e) {}
+  
+  select.value = '';
+  document.getElementById('retur-items-container').innerHTML = `
+    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center text-gray-400 text-sm">
+      <svg class="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z"/></svg>
+      <p>Pilih faktur terlebih dahulu</p>
+      <p class="text-xs mt-1">Item & batch dari faktur akan muncul di sini</p>
+    </div>`;
+  document.getElementById('retur-total-box').classList.add('hidden');
+}
+
+function closeReturForm() {
+  document.getElementById('retur-overlay').classList.add('hidden');
+  document.getElementById('retur-slideover').classList.add('hidden');
+}
+
+function loadFakturItems() {
+  const faktur = document.getElementById('retur-faktur').value;
+  const container = document.getElementById('retur-items-container');
+  const totalBox = document.getElementById('retur-total-box');
+  
+  if (!faktur) {
+    container.innerHTML = `<div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center text-gray-400 text-sm"><p>Pilih faktur terlebih dahulu</p></div>`;
+    totalBox.classList.add('hidden');
+    return;
+  }
+  
+  let targetInv = null;
+  try {
+    const invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices')) || [];
+    targetInv = invoices.find(i => i.nomor === faktur);
+  } catch(e) {}
+  
+  if(!targetInv || !targetInv.items || targetInv.items.length === 0) {
+    container.innerHTML = `<div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center text-gray-400 text-sm"><p>Faktur tidak memiliki item atau data tidak ditemukan</p></div>`;
+    totalBox.classList.add('hidden');
+    return;
+  }
+
+  let html = `<div class="space-y-3">
+    <div class="flex items-center justify-between mb-1"><span class="text-sm font-semibold">Item untuk diretur dari ${faktur}</span></div>`;
+    
+  targetInv.items.forEach((item, idx) => {
+    html += `
+    <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <input type="checkbox" class="rounded text-red-500" onchange="calcReturTotal()">
+        <span class="text-sm font-medium">${item.nama}</span>
+        <span class="text-xs text-gray-500 dark:text-gray-400">(Diterima: ${item.qty})</span>
+      </div>
+      <div class="flex items-center gap-3 mb-1">
+        <div class="flex items-center gap-1">
+          <input type="number" value="1" min="1" max="${item.qty}" class="w-16 px-2 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono text-center" onchange="calcReturTotal()">
+        </div>
+      </div>
+      <div class="text-right"><span class="text-xs font-mono text-gray-500 dark:text-gray-400">Rp ${item.harga.toLocaleString('id')} / Unit</span></div>
+    </div>`;
+  });
+  
+  html += `</div>`;
+  container.innerHTML = html;
+  totalBox.classList.remove('hidden');
+  calcReturTotal();
+}
+
+function calcReturTotal() {
+  const container = document.getElementById('retur-items-container');
+  if(!container) return;
+  const checkboxes = container.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
+  let total = 0;
+  checkboxes.forEach(cb => {
+    const itemDiv = cb.closest('.border');
+    if (!itemDiv) return;
+    const qtyInput = itemDiv.querySelector('input[type="number"]');
+    const priceText = itemDiv.querySelector('.text-right .font-mono');
+    if (qtyInput && priceText) {
+      const qty = parseInt(qtyInput.value) || 0;
+      const priceMatch = priceText.textContent.replace(/[^0-9]/g, '');
+      const price = parseInt(priceMatch) || 0;
+      total += qty * price;
+    }
+  });
+  const totalEl = document.getElementById('retur-total');
+  if(totalEl) totalEl.textContent = 'Rp ' + total.toLocaleString('id');
+}
+
+async function saveRetur() {
+  const t = document.getElementById('toast');
+  const fakturEl = document.getElementById('retur-faktur');
+  if(!fakturEl || !fakturEl.value) {
+    t.textContent = '⚠️ Pilih faktur terlebih dahulu';
+    t.classList.remove('hidden');
+    setTimeout(() => t.classList.add('hidden'), 3000);
+    return;
+  }
+
+  const container = document.getElementById('retur-items-container');
+  const checkedCards = Array.from(container.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)')).map(function(cb) {
+    const itemDiv = cb.closest('.border');
+    const qtyInput = itemDiv.querySelector('input[type="number"]');
+    const name = itemDiv.querySelector('.text-sm.font-medium');
+    const priceText = itemDiv.querySelector('.text-right .font-mono');
+    return {
+      nama: name ? name.textContent : 'Produk',
+      qty: qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1,
+      harga: priceText ? (parseInt(priceText.textContent.replace(/[^0-9]/g, ''), 10) || 0) : 0
+    };
+  });
+  if(checkedCards.length === 0) {
+    t.textContent = '⚠️ Pilih minimal 1 item untuk diretur';
+    t.classList.remove('hidden');
+    setTimeout(() => t.classList.add('hidden'), 3000);
+    return;
+  }
+
+  const alasanEl = document.getElementById('retur-alasan');
+  const returDate = document.querySelector('#retur-slideover input[type="date"]');
+  const total = checkedCards.reduce((sum, item) => sum + (item.qty * item.harga), 0);
+  const returns = JSON.parse(localStorage.getItem('apotek_pos_returns') || '[]');
+  const faktur = JSON.parse(localStorage.getItem('apotek_pos_invoices') || '[]').find(function(inv) { return inv.nomor === fakturEl.value; });
+  const rtNo = 'RT-' + Date.now().toString().slice(-6);
+  returns.unshift({
+    nomor: rtNo,
+    faktur_asal: fakturEl.value,
+    supplier: faktur ? faktur.supplier : 'Supplier',
+    tanggal: returDate ? returDate.value : new Date().toISOString().split('T')[0],
+    alasan: alasanEl ? alasanEl.value : 'Rusak / Pecah',
+    total: total,
+    items: checkedCards
+  });
+  localStorage.setItem('apotek_pos_returns', JSON.stringify(returns));
+
+  applyReturnedStock(checkedCards);
+  closeReturForm();
+  t.textContent = '↩️ Retur #' + rtNo + ' tersimpan — stok berkurang & hutang ter-update';
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 3000);
+
+  renderReturTable();
+  renderHutangTable();
+  renderRiwayatTable();
+}
+
+// ===== DEFECTA GENERATOR WITH MULTI-SUPPLIER =====
+async function getProductData() {
+  try {
+    const res = await window.ApotekDB.getProducts();
+    const rows = (res && res.data) || [];
+    if (rows.length) return rows.map(function(product) {
+      return Object.assign({}, product, {
+        stok: Number(product.stok ?? product.stok_total ?? product.stock ?? 0),
+        stok_minimum: Number(product.stok_minimum ?? product.min ?? 0),
+        harga_beli: Number(product.harga_beli ?? product.price ?? 0)
+      });
+    });
+  } catch(e) { console.error(e); }
+  try {
+    return JSON.parse(localStorage.getItem('apotek_products_master') || localStorage.getItem('products_master') || '[]');
+  } catch(e) { console.error(e); return []; }
+}
+
+async function getPOs() {
+  try {
+    const res = await window.ApotekDB.getPurchaseOrders();
+    return res.data || [];
+  } catch(e) { console.error(e); return []; }
+}
+
+async function savePOs(data) {
+  try {
+    if(Array.isArray(data)) {
+      for(let d of data) await window.ApotekDB.savePurchaseOrder(d);
+    } else {
+      await window.ApotekDB.savePurchaseOrder(data);
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function getSupplierList() {
+  try {
+    const res = await window.ApotekDB.getSuppliers();
+    return res.data || [];
+  } catch(e) { console.error(e); return []; }
+}
+
+async function renderPOTable() {
+  const pos = await getPOs();
+  const tbody = document.querySelector('#tab-po table tbody');
+  if(!tbody) return;
+  const statusClass = {
+    'SEBAGIAN': 'bg-amber-100 text-amber-700',
+    'DIKIRIM': 'bg-blue-100 text-blue-700',
+    'LUNAS': 'bg-green-100 text-green-700',
+    'DRAFT': 'bg-gray-100 text-gray-700 dark:text-gray-300'
+  };
+  let html = pos.map(po => {
+    const totalItems = (po.items || []).length;
+    const totalEst = (po.items || []).reduce((s,i) => s + (i.qty * i.harga), 0);
+    const sc = statusClass[po.status] || statusClass['DRAFT'];
+    const poStr = encodeURIComponent(JSON.stringify(po));
+    return `<tr class="row-hover cursor-pointer" onclick="openReceiveForm('${po.nomor}')">
+      <td class="px-4 py-3 font-mono text-xs font-semibold">${po.nomor}</td>
+      <td class="px-4 py-3">${po.supplier || po.supplier_name || ''}</td>
+      <td class="px-4 py-3 text-xs">${po.tanggal}</td>
+      <td class="px-4 py-3 text-center font-mono text-xs">${po.diterima||0}/${totalItems} item</td>
+      <td class="px-4 py-3 text-right font-mono">Rp ${totalEst.toLocaleString('id')}</td>
+      <td class="px-4 py-3 text-center"><span class="text-[10px] ${sc} px-2 py-1 rounded-full font-bold">${po.status}</span></td>
+      <td class="px-4 py-3 text-right"><button onclick="event.stopPropagation();openReceiveForm('${po.nomor}')" class="text-accent hover:underline text-xs font-medium">Terima</button> <button onclick="event.stopPropagation();" class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:text-gray-100 text-xs ml-1">Lihat</button></td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML = html;
+  updatePOKPIs(pos);
+}
+
+function updatePOKPIs(pos) {
+  const now = new Date();
+  const currentMonthStr = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][now.getMonth()] + ' ' + now.getFullYear();
+  const monthPO = pos.filter(p => p.tanggal && p.tanggal.includes(currentMonthStr));
+  const totalValue = monthPO.reduce((s,p) => s + (p.items || []).reduce((si,i) => si + (i.qty * i.harga), 0), 0);
+  const waiting = pos.filter(p => p.status === 'DIKIRIM' || p.status === 'DRAFT').length;
+  const done = pos.filter(p => p.status === 'LUNAS').length;
+  
+  const grid = document.querySelector('#tab-po .grid');
+  if(grid) {
+    grid.innerHTML = `
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total PO Bulan Ini</p><p class="text-2xl font-bold font-mono">${monthPO.length}</p></div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Nilai PO Bulan Ini</p><p class="text-2xl font-bold font-mono text-primary">Rp ${(totalValue/1000000).toFixed(1)}jt</p></div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-amber-200 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Menunggu Diterima</p><p class="text-2xl font-bold font-mono text-amber-600">${waiting} PO</p></div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-green-200 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Selesai Bulan Ini</p><p class="text-2xl font-bold font-mono text-green-700">${done} PO</p></div>
+    `;
+  }
+}
+
+async function generateFromDefecta() {
+  localStorage.removeItem('apotek_pos_open_defecta');
+  const allProducts = await getProductData();
+  const defectaItems = allProducts.filter(p => p.stok < p.stok_minimum || p.stok < p.min);
+  if (!defectaItems.length) {
+    showPembToast('✅ Tidak ada produk defecta — semua stok di atas minimum');
+    return;
+  }
+  const supplierList = await getSupplierList();
+  const body = document.getElementById('defecta-items-body');
+  
+  // Need to extract logic gracefully
+  body.innerHTML = defectaItems.map((item, i) => {
+    let min = item.stok_minimum || item.min || 10;
+    let stok = item.stok || 0;
+    // Supplier choices logic - use linked suppliers if available, otherwise all active suppliers
+    let sups = [];
+    if(item.product_suppliers && item.product_suppliers.length > 0) {
+      sups = item.product_suppliers.map(ps => ps.suppliers ? ps.suppliers.nama : null).filter(n=>n);
+    }
+    if(sups.length === 0) sups = supplierList.map(s => s.nama);
+    if(sups.length === 0) sups = ['Supplier Umum'];
+    
+    const options = sups.map(s => '<option value="'+s+'">'+s+'</option>').join('');
+    const butuh = min - stok + Math.ceil(min * 0.3);
+    const harga = (item.harga_beli && item.harga_beli > 0) ? item.harga_beli : 0;
+    const kode = item.kode_produk || item.kode || '';
+    const nama = item.nama_dagang || item.nama || '';
+    const productId = item.id || item.product_id || '';
+
+    return '<tr><td class="px-3 py-2 font-medium text-xs">'+nama+'</td><td class="px-3 py-2 text-center font-mono text-xs '+(stok<=3?'text-red-600 font-bold':'text-amber-600')+'">'+stok+'</td><td class="px-3 py-2 text-center text-xs text-gray-500 dark:text-gray-400">'+min+'</td><td class="px-3 py-2 text-center font-mono text-xs font-bold text-primary">'+butuh+'</td><td class="px-3 py-2"><select class="defecta-supplier w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs cursor-pointer" data-produk="'+nama+'" data-qty="'+butuh+'" data-kode="'+kode+'" data-harga="'+harga+'" data-product-id="'+productId+'">'+options+'</select></td></tr>';
+  }).join('');
+  document.getElementById('defecta-modal').classList.remove('hidden');
+  document.getElementById('defecta-summary').classList.add('hidden');
+}
+
+function closeDefectaModal() {
+  document.getElementById('defecta-modal').classList.add('hidden');
+}
+
+async function generatePoPerSupplier() {
+  const selects = document.querySelectorAll('.defecta-supplier');
+  const grouped = {};
+  selects.forEach(sel => {
+    const supplier = sel.value;
+    const produk = sel.dataset.produk;
+    const qty = parseInt(sel.dataset.qty) || 0;
+    const kode = sel.dataset.kode||'';
+    const harga = parseInt(sel.dataset.harga) || 0;
+    if (!grouped[supplier]) grouped[supplier] = [];
+    grouped[supplier].push({produk, qty, kode, harga, productId: sel.dataset.productId || ''});
+  });
+  const supplierNames = Object.keys(grouped);
+  if (!supplierNames.length) { showPembToast('⚠️ Tidak ada item untuk di-generate'); return; }
+  const summary = document.getElementById('defecta-summary');
+  summary.classList.remove('hidden');
+  let summaryHtml = '<span class="font-semibold">'+supplierNames.length+' PO akan dibuat:</span><br>';
+
+  const today = new Date();
+  const tgl = today.getDate()+' '+['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][today.getMonth()]+' '+today.getFullYear();
+  let pos = await getPOs();
+  const lastNum = pos.length > 0 ? Math.max(...pos.map(p => {
+    if(!p.nomor) return 0;
+    const parts = p.nomor.split('-');
+    return parts.length > 1 ? parseInt(parts[1]) || 0 : 0;
+  })) : 0;
+
+  const newPOs = [];
+  supplierNames.forEach(s => {
+    const items = grouped[s].map(i => i.produk+' ('+i.qty+' unit)').join(', ');
+    summaryHtml += '• <b>'+s+'</b>: '+items+'<br>';
+    const newNum = lastNum + 1 + supplierNames.indexOf(s);
+    const newPO = {
+      nomor: 'PO-'+String(newNum).padStart(6,'0'),
+      supplier: s,
+      tanggal: tgl,
+      items: grouped[s].map(i => ({nama: i.produk, qty: i.qty, satuan: 'Box', harga: i.harga, product_id: i.productId || null})),
+      status: 'DRAFT',
+      diterima: 0
+    };
+    newPOs.push(newPO);
+  });
+
+  await savePOs(newPOs);
+  renderPOTable();
+  closeDefectaModal();
+  showPembToast('✅ '+supplierNames.length+' PO berhasil dibuat — Per supplier: '+supplierNames.join(', '));
+}
+
+function showPembToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 4000);
+}
+
+document.getElementById('po-overlay')?.addEventListener('click', function(e) { if(e.target===this)closePoForm(); });
+document.getElementById('receive-overlay')?.addEventListener('click', function(e) { if(e.target===this)closeReceiveForm(); });
+
+// Global po data cache
+let __currentPOData = null;
+async function openReceiveForm(poRef) {
+  const header = document.getElementById('receive-header-info');
+  if (poRef) {
+    const pos = await getPOs();
+    const po = pos.find(p => p.nomor === poRef);
+    if (po) {
+      __currentPOData = po;
+      header.innerHTML = '<span class="font-mono font-semibold">' + po.nomor + '</span> · ' + (po.supplier||'') + ' · ' + (po.tanggal||'');
+      
+      // Render PO items in receive form dynamically
+      renderReceiveItems(po);
+    } else {
+      __currentPOData = null;
+      header.innerHTML = '<span class="font-mono font-semibold">' + poRef + '</span>';
+    }
+  } else {
+    __currentPOData = null;
+    header.innerHTML = '<span class="text-gray-500 dark:text-gray-400">Tanpa PO — Faktur Langsung</span>';
+  }
+  document.getElementById('receive-overlay').classList.remove('hidden');
+  document.getElementById('receive-slideover').classList.remove('hidden');
+}
+
+function renderReceiveItems(po) {
+  // Finds the container which currently holds "Item 1", "Item 2" hardcoded
+  // We will replace it
+  const container = document.querySelector('#receive-slideover .space-y-4 > div:nth-child(2)');
+  if(!container) return;
+  
+  let html = '<h4 class="text-sm font-semibold mb-3">Item Diterima</h4>';
+  
+  if(po && po.items && po.items.length) {
+    html += po.items.map((item, idx) => {
+      return `
+      <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-3 bg-gray-50 dark:bg-gray-900/50 receive-item" data-nama="${item.nama}">
+        <div class="flex items-center gap-2 mb-3">
+          <input type="checkbox" checked class="rounded text-primary receive-item-check" onchange="calcReceiveTotal()">
+          <span class="text-sm font-medium">${item.nama}</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400">(Dipesan: ${item.qty} ${item.satuan} · Sudah diterima: 0)</span>
+        </div>
+        <div class="grid grid-cols-3 gap-3 mb-3">
+          <div><label class="block text-[10px] font-medium mb-0.5">Qty Diterima</label><div class="flex items-center gap-1"><input type="number" value="${item.qty}" class="w-16 px-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono receive-qty-input" onchange="calcReceiveTotal()"><span class="text-xs text-gray-500 dark:text-gray-400">${item.satuan}</span></div></div>
+          <div><label class="block text-[10px] font-medium mb-0.5">Harga Aktual/${item.satuan}</label><div class="relative"><span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">Rp</span><input type="number" value="${item.harga}" class="w-full pl-7 pr-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono receive-price-input" onchange="calcReceiveTotal()"></div></div>
+        </div>
+        <div class="space-y-2">
+          <div class="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Batch</div>
+          <div class="grid grid-cols-5 gap-2 items-end bg-white dark:bg-gray-800 border border-green-200 rounded-lg p-2 receive-batch-row">
+            <div class="col-span-2"><label class="text-[10px]">No. Batch</label><input type="text" value="BN-${new Date().getFullYear()}-${Math.floor(Math.random()*1000)}" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono receive-batch-no"></div>
+            <div><label class="text-[10px]">Expiry</label><input type="date" value="${new Date(new Date().setFullYear(new Date().getFullYear()+2)).toISOString().split('T')[0]}" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs receive-batch-exp"></div>
+            <div><label class="text-[10px]">Qty</label><input type="number" value="${item.qty}" class="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono receive-batch-qty"></div>
+            <div class="flex items-end gap-1"><span class="text-xs text-gray-500 dark:text-gray-400">${item.satuan}</span></div>
+          </div>
+        </div>
+      </div>
+      `;
+    }).join('');
+  } else {
+     html += '<p class="text-sm text-gray-500 dark:text-gray-400">Pilih item secara manual (Tanpa PO)</p>';
+  }
+  container.innerHTML = html;
+  calcReceiveTotal();
+}
+
+function calcReceiveTotal() {
+  const container = document.querySelector('#receive-slideover .space-y-4 > div:nth-child(2)');
+  if(!container) return;
+  const items = container.querySelectorAll('.receive-item');
+  let total = 0;
+  let summary = [];
+
+  items.forEach(el => {
+    const cb = el.querySelector('.receive-item-check');
+    if(cb && cb.checked) {
+      const qty = parseInt(el.querySelector('.receive-qty-input').value) || 0;
+      const price = parseInt(el.querySelector('.receive-price-input').value) || 0;
+      const name = el.dataset.nama;
+      total += (qty * price);
+      if(qty > 0) summary.push(`${qty} ${name}`);
+    }
+  });
+
+  const totalEl = document.querySelector('.bg-orange-accent dark:bg-orange-600\\/5 .text-xl');
+  if(totalEl) totalEl.textContent = 'Rp ' + total.toLocaleString('id');
+  const summaryEl = document.querySelector('.bg-orange-accent dark:bg-orange-600\\/5 .text-xs.text-gray-500 dark:text-gray-400');
+  if(summaryEl) summaryEl.textContent = summary.join(' + ');
+}
+
+function loadLocalMasterProducts() {
+  try {
+    return JSON.parse(localStorage.getItem('apotek_products_master') || localStorage.getItem('products_master') || '[]');
+  } catch (e) {
+    console.error(e);
+    return [];
+  }
+}
+
+function saveLocalMasterProducts(rows) {
+  const json = JSON.stringify(rows);
+  localStorage.setItem('apotek_products_master', json);
+  localStorage.setItem('products_master', json);
+}
+
+function applyReceivedStock(items) {
+  const products = loadLocalMasterProducts();
+  if (!products.length) return;
+  const next = products.map(function(product) {
+    const incoming = items.find(function(item) {
+      return item.product_id && String(item.product_id) === String(product.id || product.product_id || product.kode || '');
+    }) || items.find(function(item) {
+      return (item.nama || '').toLowerCase() === String(product.nama_dagang || product.nama || '').toLowerCase();
+    });
+    if (!incoming) return product;
+    const currentStock = Number(product.stok ?? product.stok_total ?? product.stock ?? 0);
+    const nextStock = currentStock + (Number(incoming.qty) || 0);
+    return Object.assign({}, product, { stok: nextStock, stok_total: nextStock, stock: nextStock });
+  });
+  saveLocalMasterProducts(next);
+}
+
+function applyReturnedStock(items) {
+  const products = loadLocalMasterProducts();
+  if (!products.length) return;
+  const next = products.map(function(product) {
+    const outgoing = items.find(function(item) {
+      return (item.nama || '').toLowerCase() === String(product.nama_dagang || product.nama || '').toLowerCase();
+    });
+    if (!outgoing) return product;
+    const currentStock = Number(product.stok ?? product.stok_total ?? product.stock ?? 0);
+    const nextStock = Math.max(0, currentStock - (Number(outgoing.qty) || 0));
+    return Object.assign({}, product, { stok: nextStock, stok_total: nextStock, stock: nextStock });
+  });
+  saveLocalMasterProducts(next);
+}
+
+async function confirmReceive() {
+  // Build faktur data from DOM
+  const noFaktur = document.querySelector('#receive-slideover input[type="text"]').value;
+  const tglFaktur = document.querySelectorAll('#receive-slideover input[type="date"]')[0].value;
+  
+  const itemsDiv = document.querySelectorAll('#receive-slideover .receive-item');
+  let fakturItems = [];
+  itemsDiv.forEach(el => {
+    const cb = el.querySelector('.receive-item-check');
+    if(cb && cb.checked) {
+      const qty = parseInt(el.querySelector('.receive-qty-input').value) || 0;
+      const price = parseInt(el.querySelector('.receive-price-input').value) || 0;
+      const sourceItem = (__currentPOData && __currentPOData.items || []).find(function(item) { return item.nama === el.dataset.nama; }) || {};
+      fakturItems.push({ nama: el.dataset.nama, qty: qty, harga: price, subtotal: qty*price, product_id: sourceItem.product_id || null });
+    }
+  });
+
+  if (!fakturItems.length) {
+    showPembToast('⚠️ Pilih minimal 1 item diterima');
+    return;
+  }
+  
+  const total = fakturItems.reduce((s,i) => s + i.subtotal, 0);
+  
+  const newFaktur = {
+    id: 'faktur_'+Date.now(),
+    nomor: noFaktur || 'INV/AUTO/'+Date.now(),
+    po_ref: __currentPOData ? __currentPOData.nomor : null,
+    supplier: __currentPOData ? __currentPOData.supplier : 'Umum',
+    tanggal: tglFaktur,
+    items: fakturItems,
+    total: total,
+    dibayar: 0,
+    status: 'DITERIMA'
+  };
+  
+  // Update PO Status if linked
+  if(__currentPOData) {
+    let pos = await getPOs();
+    let idx = pos.findIndex(p => p.nomor === __currentPOData.nomor);
+    if(idx >= 0) {
+      pos[idx].status = 'SEBAGIAN'; // Simplified logic
+      pos[idx].diterima = fakturItems.length;
+      if(pos[idx].diterima >= pos[idx].items.length) pos[idx].status = 'LUNAS';
+      await savePOs(pos); // Should save all
+    }
+  }
+  
+  // Here we would normally save faktur using ApotekDB
+  // ApotekDB.savePurchaseInvoice(newFaktur); 
+  // Since it doesn't exist yet, we save it in local storage directly for now
+  try {
+    let invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices')) || [];
+    invoices.unshift(newFaktur);
+    localStorage.setItem('apotek_pos_invoices', JSON.stringify(invoices));
+  } catch(e){}
+  
+  applyReceivedStock(fakturItems);
+  closeReceiveForm();
+  showPembToast('✅ Barang diterima — Faktur ' + newFaktur.nomor + ' tersimpan');
+  renderPOTable();
+  renderFakturTable();
+  renderHutangTable();
+  renderRiwayatTable();
+}
+
+
+async function renderReturTable() {
+  const tbody = document.querySelector('#tab-retur table tbody');
+  if(!tbody) return;
+  const returns = JSON.parse(localStorage.getItem('apotek_pos_returns') || '[]');
+  if(!returns.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">Belum ada data retur</td></tr>';
+    return;
+  }
+  tbody.innerHTML = returns.map(function(retur) {
+    return '<tr class="row-hover">' +
+      '<td class="px-4 py-3 font-mono text-xs font-semibold">' + retur.nomor + '</td>' +
+      '<td class="px-4 py-3 font-mono text-xs">' + retur.faktur_asal + '</td>' +
+      '<td class="px-4 py-3 text-xs">' + retur.supplier + '</td>' +
+      '<td class="px-4 py-3 text-xs">' + retur.tanggal + '</td>' +
+      '<td class="px-4 py-3 text-right font-mono">Rp ' + (retur.total || 0).toLocaleString('id') + '</td>' +
+      '<td class="px-4 py-3 text-center"><span class="text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">' + retur.alasan + '</span></td>' +
+    '</tr>';
+  }).join('');
+}
+async function renderHutangTable() {
+  const tbody = document.querySelector('#tab-hutang table tbody');
+  if(!tbody) return;
+  const invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices') || '[]');
+  const grouped = {};
+  invoices.forEach(function(inv) {
+    const supplier = inv.supplier || 'Supplier';
+    const total = Number(inv.total || 0);
+    const dibayar = Number(inv.dibayar || 0);
+    if (!grouped[supplier]) grouped[supplier] = { supplier: supplier, tipe: 'PBF', jumlah: 0, total: 0, dibayar: 0, jatuhTempo: inv.jatuh_tempo || '-' };
+    grouped[supplier].jumlah += 1;
+    grouped[supplier].total += total;
+    grouped[supplier].dibayar += dibayar;
+    if (inv.jatuh_tempo && (grouped[supplier].jatuhTempo === '-' || inv.jatuh_tempo < grouped[supplier].jatuhTempo)) grouped[supplier].jatuhTempo = inv.jatuh_tempo;
+  });
+  const rows = Object.values(grouped).filter(function(row) { return row.total - row.dibayar > 0; });
+  if(!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">Belum ada data hutang</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(row) {
+    const sisa = row.total - row.dibayar;
+    return '<tr class="row-hover">' +
+      '<td class="px-4 py-3 font-medium">' + row.supplier + '</td>' +
+      '<td class="px-4 py-3 text-xs">' + row.tipe + '</td>' +
+      '<td class="px-4 py-3 text-center font-mono text-xs">' + row.jumlah + '</td>' +
+      '<td class="px-4 py-3 text-right font-mono">Rp ' + row.total.toLocaleString('id') + '</td>' +
+      '<td class="px-4 py-3 text-right font-mono">Rp ' + row.dibayar.toLocaleString('id') + '</td>' +
+      '<td class="px-4 py-3 text-right font-mono text-amber-600">Rp ' + sisa.toLocaleString('id') + '</td>' +
+      '<td class="px-4 py-3 text-xs">' + row.jatuhTempo + '</td>' +
+    '</tr>';
+  }).join('');
+}
+async function renderRiwayatTable() {
+  const tbody = document.querySelector('#tab-riwayat table tbody');
+  if(!tbody) return;
+  const pos = await getPOs();
+  const invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices') || '[]');
+  const returns = JSON.parse(localStorage.getItem('apotek_pos_returns') || '[]');
+  const rows = [];
+  pos.forEach(function(po) {
+    rows.push({ tanggal: po.tanggal || '-', tipe: 'PO', nomor: po.nomor, supplier: po.supplier || '-', total: (po.items || []).reduce(function(sum, item) { return sum + ((Number(item.qty) || 0) * (Number(item.harga) || 0)); }, 0), status: po.status || 'DRAFT' });
+  });
+  invoices.forEach(function(inv) {
+    rows.push({ tanggal: inv.tanggal || '-', tipe: 'FAKTUR', nomor: inv.nomor, supplier: inv.supplier || '-', total: Number(inv.total || 0), status: inv.status || 'DITERIMA' });
+  });
+  returns.forEach(function(retur) {
+    rows.push({ tanggal: retur.tanggal || '-', tipe: 'RETUR', nomor: retur.nomor, supplier: retur.supplier || '-', total: Number(retur.total || 0), status: retur.alasan || 'Retur' });
+  });
+  rows.sort(function(a, b) { return String(b.tanggal).localeCompare(String(a.tanggal)); });
+  if(!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">Belum ada riwayat transaksi</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(row) {
+    return '<tr class="row-hover">' +
+      '<td class="px-4 py-3 text-xs">' + row.tanggal + '</td>' +
+      '<td class="px-4 py-3 text-xs font-semibold">' + row.tipe + '</td>' +
+      '<td class="px-4 py-3 font-mono text-xs">' + row.nomor + '</td>' +
+      '<td class="px-4 py-3 text-xs">' + row.supplier + '</td>' +
+      '<td class="px-4 py-3 text-right font-mono">Rp ' + row.total.toLocaleString('id') + '</td>' +
+      '<td class="px-4 py-3 text-center"><span class="text-[10px] bg-gray-100 text-gray-700 px-2 py-1 rounded-full font-medium">' + row.status + '</span></td>' +
+    '</tr>';
+  }).join('');
+}
+
+async function renderFakturTable() {
+  let invoices = [];
+  try {
+    invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices')) || [];
+  } catch(e){}
+  
+  const tbody = document.querySelector('#tab-faktur table tbody');
+  if(!tbody) return;
+  
+  if(invoices.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">Belum ada data faktur</td></tr>';
+    return;
+  }
+  
+  let html = invoices.map(inv => {
+    const sisa = inv.total - inv.dibayar;
+    return `<tr class="row-hover cursor-pointer">
+      <td class="px-4 py-3 font-mono text-xs font-semibold">${inv.nomor}</td>
+      <td class="px-4 py-3">${inv.supplier}</td>
+      <td class="px-4 py-3 text-xs">${inv.tanggal}</td>
+      <td class="px-4 py-3 text-right font-mono">Rp ${inv.total.toLocaleString('id')}</td>
+      <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">Rp ${inv.dibayar.toLocaleString('id')}</td>
+      <td class="px-4 py-3 text-right font-mono ${sisa>0?'text-amber-600':'text-green-600'}">Rp ${sisa.toLocaleString('id')}</td>
+      <td class="px-4 py-3 text-center"><span class="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">✅ ${inv.status}</span></td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML = html;
+}
+
+// ===== INIT: read profile from localStorage =====
+(async function(){
+  const n=localStorage.getItem('apotek_pos_profile_name')||'Apotek Sehat';
+  const el=document.getElementById('module-header-name');
+  if(el)el.textContent='💊 '+n;
+  
+  // Wait a tick for ApotekDB to init
+  setTimeout(async () => {
+    await renderPOTable();
+    await renderFakturTable();
+    await renderReturTable();
+    await renderHutangTable();
+    await renderRiwayatTable();
+    var wasDefecta = localStorage.getItem('apotek_pos_open_defecta');
+    localStorage.removeItem('apotek_pos_open_defecta');
+    if (wasDefecta === '1') {
+      // FIX: Auto-open defecta modal instead of just showing toast
+      if (typeof generateFromDefecta === 'function') generateFromDefecta();
+    }
+  }, 100);
+})();
+</script>
+
+<script>
+  function toggleSidebar() {
+      const sidebar = document.getElementById('global-sidebar');
+      const texts = sidebar.querySelectorAll('.nav-text');
+      const isCollapsed = sidebar.classList.contains('w-16');
+      
+      if(isCollapsed) {
+          sidebar.classList.remove('w-16');
+          sidebar.classList.add('w-56');
+          texts.forEach(t => t.classList.remove('hidden'));
+      } else {
+          sidebar.classList.remove('w-56');
+          sidebar.classList.add('w-16');
+          texts.forEach(t => t.classList.add('hidden'));
+      }
+  }
+</script>
+
+<script>
+  function comingSoon(feature) {
+      alert(`Fitur ${feature} sedang dalam tahap pengembangan dan akan terhubung ke Modul Kamera / Supabase di rilis selanjutnya.`);
+  }
+</script>
+<!-- FIX: Patch jatuh_tempo → tanggal_jatuh_tempo for invoice consistency -->
+<script>
+(function(){
+  // Monkey-patch confirmReceive to include tanggal_jatuh_tempo
+  var _origConfirmReceive = confirmReceive;
+  confirmReceive = async function() {
+    // Call original first
+    await _origConfirmReceive.apply(this, arguments);
+    // Post-patch: ensure all saved invoices have tanggal_jatuh_tempo
+    try {
+      var invoices = JSON.parse(localStorage.getItem('apotek_purchase_invoices') || '[]');
+      invoices = invoices.map(function(inv) {
+        if (!inv.tanggal_jatuh_tempo && inv.tanggal) {
+          inv.tanggal_jatuh_tempo = new Date(new Date(inv.tanggal).getTime() + 30*86400000).toISOString().split('T')[0];
+        }
+        return inv;
+      });
+      localStorage.setItem('apotek_purchase_invoices', JSON.stringify(invoices));
+    } catch(e) {}
+  };
+  // Patch renderHutangTable to read tanggal_jatuh_tempo not jatuh_tempo
+  var _origRenderHutang = renderHutangTable;
+  renderHutangTable = function() {
+    var invoices = [];
+    try { invoices = JSON.parse(localStorage.getItem('apotek_purchase_invoices') || '[]'); } catch(e) {}
+    // Normalize: ensure tanggal_jatuh_tempo exists
+    invoices.forEach(function(inv) {
+      if (!inv.tanggal_jatuh_tempo) inv.tanggal_jatuh_tempo = inv.jatuh_tempo || (inv.tanggal ? new Date(new Date(inv.tanggal).getTime() + 30*86400000).toISOString().split('T')[0] : '-');
+    });
+    _origRenderHutang.apply(this, arguments);
+  };
+})();
+</script>
+<!-- Zombie script REMOVED — was killing all Defecta buttons with broken addDraftPoItem() -->
+<!-- Proper defecta flow: generateFromDefecta() → modal → generatePoPerSupplier() → savePOs() -->
+<div style="text-align:center;padding:8px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb">Powered by <b>Digicraft</b></div><!-- FIX: Route stock ops through ProductDB -->
+<script>
+(function(){
+  if (!window.ProductDB) return;
+  // Override applyReceivedStock to use ProductDB
+  var _origApply = window.applyReceivedStock;
+  window.applyReceivedStock = function(items) {
+    if (!items || !items.length) return;
+    // FIX: Single read-modify-write + case-insensitive matching
+    var all = ProductDB.getAllIncInactive();
+    var updated = false;
+    items.forEach(function(item) {
+      var pid = (item.product_id || item.nama || '').toLowerCase();
+      var qty = Number(item.qty) || 0;
+      if (!pid || qty <= 0) return;
+      var prod = all.find(function(p) {
+        return (p.id || '').toLowerCase() === pid || (p.kode || '').toLowerCase() === pid || (p.nama_dagang || p.nama || '').toLowerCase() === pid;
+      });
+      if (prod) { prod.stok = (prod.stok || 0) + qty; updated = true; }
+    });
+    if (updated) ProductDB.save(all);
+  };
+  // Override applyReturnedStock to use ProductDB
+  var _origReturn = window.applyReturnedStock;
+  window.applyReturnedStock = function(items) {
+    if (!items || !items.length) return;
+    // FIX: Single read-modify-write + case-insensitive matching
+    var all = ProductDB.getAllIncInactive();
+    var updated = false;
+    items.forEach(function(item) {
+      var name = (item.nama || '').toLowerCase();
+      var qty = Number(item.qty) || 0;
+      if (!name || qty <= 0) return;
+      var prod = all.find(function(p) {
+        return (p.nama_dagang || p.nama || '').toLowerCase() === name;
+      });
+      if (prod) { prod.stok = Math.max(0, (prod.stok || 0) - qty); updated = true; }
+    });
+    if (updated) ProductDB.save(all);
+  };
+  // Unify invoice keys
+  var _origConfirm = window.confirmReceive;
+  if (_origConfirm) {
+    window.confirmReceive = async function() {
+      await _origConfirm.apply(this, arguments);
+      // Post-save: copy invoice to ProductDB-compatible key
+      try {
+        var invs = JSON.parse(localStorage.getItem('apotek_pos_invoices') || '[]');
+        localStorage.setItem('apotek_purchase_invoices', JSON.stringify(invs));
+      } catch(e) {}
+    };
+  }
+})();
+</script>
+</body>

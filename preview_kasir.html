@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview — Kasir Apotek POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="js/supabase-bridge.js"></script>
+<!-- FIX: Shared product data layer — normalizes across all modules -->
+<script src="js/product-schema.js"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { mono: ['Fira Code','Consolas','monospace'], sans: ['Fira Sans','Inter','system-ui','sans-serif'] },
+      colors: { 
+        primary:'#15803D', secondary:'#22C55E', accent:'#0369A1', 
+        surface:'#F0FDF4', 'text-primary':'#14532D', 'text-secondary':'#166534',
+        'dashboard-gray': '#F4F5F7', 'orange-accent': '#FF5A1F'
+      }
+    }
+  }
+}
+
+
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @media print {
+    @page { margin: 0; size: 58mm auto; }
+    body { background: white !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body > :not(#print-area) { display: none !important; }
+    #print-area, #print-area * { visibility: visible !important; }
+    #print-area { display: block !important; position: relative !important; left: 0 !important; top: 0 !important; width: 58mm; font-size: 10px; margin: 0; padding: 2mm; color: black !important; background: white !important; font-family: 'Courier New', monospace !important; line-height: 1.2 !important; }
+    #print-area * { color: black !important; background: transparent !important; }
+    #print-area .print-row { display: flex !important; justify-content: space-between; font-family: 'Courier New', monospace !important; font-size: 10px !important; }
+    #print-area .print-dashed { border-top: 1px dashed #000 !important; margin: 4px 0 !important; }
+    #print-area .print-center { text-align: center !important; }
+    #print-area .print-bold { font-weight: bold !important; }
+    #print-area .print-right { text-align: right !important; }
+    #print-area .print-double { border-top: 1px double #000 !important; margin: 4px 0 !important; }
+    #print-area .print-sm { font-size: 9px !important; }
+    #print-area .print-lg { font-size: 12px !important; }
+  }
+  .product-card { transition: all 150ms ease; }
+  .product-card:hover { transform: translateY(-1px); }
+  .product-card:active { transform: scale(0.98); }
+  .cart-enter { animation: slideIn 200ms ease; }
+  .cart-panel { transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease, opacity 0.25s ease, border-width 0.25s ease; }
+  .cart-panel.collapsed { width: 0 !important; min-width: 0 !important; padding: 0 !important; overflow: hidden; opacity: 0; border-width: 0 !important; }
+  @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .skeleton { animation: pulse-slow 1.8s ease infinite; }
+</style>
+
+<script>
+  // Dark Mode Logic
+  function toggleDarkMode() {
+    document.documentElement.classList.toggle('dark');
+    const isDark = document.documentElement.classList.contains('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeIcon(isDark);
+  }
+  
+  function updateThemeIcon(isDark) {
+    const sunIcon = document.getElementById('sun-icon');
+    const moonIcon = document.getElementById('moon-icon');
+    if(sunIcon && moonIcon) {
+        if(isDark) {
+            sunIcon.classList.remove('scale-100', 'opacity-100');
+            sunIcon.classList.add('scale-0', 'opacity-0');
+            moonIcon.classList.remove('scale-0', 'opacity-0');
+            moonIcon.classList.add('scale-100', 'opacity-100');
+        } else {
+            moonIcon.classList.remove('scale-100', 'opacity-100');
+            moonIcon.classList.add('scale-0', 'opacity-0');
+            sunIcon.classList.remove('scale-0', 'opacity-0');
+            sunIcon.classList.add('scale-100', 'opacity-100');
+        }
+    }
+  }
+
+  // Init theme
+  if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  window.addEventListener('DOMContentLoaded', () => {
+    updateThemeIcon(document.documentElement.classList.contains('dark'));
+  });
+</script>
+
+<style>
+  /* Finexy Custom Styles & Dark Mode Fixes */
+  .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); }
+  .dark .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5); }
+  .row-hover:hover { background: #f9fafb; }
+  .dark .row-hover:hover { background: #1f2937; }
+  .nav-active { background: #111827; color: #ffffff; }
+  .dark .nav-active { background: #FF5A1F; color: #ffffff; }
+</style>
+
+<script>
+// ===== GLOBAL STATE =====
+let cart = [];
+let products = [];
+let shiftActive = true;
+let shiftModalAwal = 500000;
+let shiftKasAkhir = 500000;
+let totalTrxValue = 0;
+let selectedPaymentMethod = null;
+let selectedEwallet = null;
+let apotekNama = 'Apotek POS';
+let apotekAlamat = 'Jl. Kesehatan No. 42';
+let apotekTelp = '(021) 555-0192';
+let apotekFooter = 'Semoga lekas sembuh ☺\nMinum obat sesuai aturan\n\nButuh obat? Kami siap antar!\nTelp: (021) 555-0192';
+
+// ===== PRODUCT DATA (via shared ProductDB) =====
+function getProducts() { return window.ProductDB ? ProductDB.getAll() : []; }
+
+// ===== PRODUCT RENDER =====
+function renderProducts() {
+  products = getProducts();
+  const search = (document.getElementById('search-input').value || '').toLowerCase();
+  let filtered = products;
+  if (search) filtered = products.filter(p => 
+    (p.nama_dagang || '').toLowerCase().includes(search) || 
+    (p.nama_generik || '').toLowerCase().includes(search) ||
+    (p.kode || '').toLowerCase().includes(search)
+  );
+  // Filter by kategori
+  const activeKategori = document.querySelector('.kategori-btn.bg-orange-accent, .kategori-btn.bg-orange-600');
+  if (activeKategori) {
+    const kat = activeKategori.dataset.kategori;
+    if (kat && kat !== 'semua') filtered = filtered.filter(p => p.category === kat || p.golongan === kat);
+  }
+  const grid = document.getElementById('product-grid');
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">Tidak ada produk ditemukan</div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(p => `
+    <div class="product-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 cursor-pointer card-shadow" onclick="addToCart('${p.id}')">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xl">${p.image || '💊'}</span>
+        <span class="text-xs px-1.5 py-0.5 rounded font-medium ${p.category==='keras'?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}">${p.golongan||p.category||'bebas'}</span>
+      </div>
+      <p class="font-semibold text-sm leading-tight">${p.nama_dagang}</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400">${p.nama_generik||''}</p>
+      <div class="flex justify-between items-center mt-2">
+        <span class="font-mono font-bold text-primary">Rp ${(p.harga_jual||0).toLocaleString('id')}</span>
+        <span class="text-xs text-gray-500 dark:text-gray-400">Stok: ${p.stok||0}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function setKategori(kat, el) {
+  document.querySelectorAll('.kategori-btn').forEach(b => {
+    b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white');
+    b.classList.add('bg-white','dark:bg-gray-800','border','border-gray-300');
+  });
+  el.classList.add('bg-orange-accent','dark:bg-orange-600','text-white');
+  el.classList.remove('bg-white','dark:bg-gray-800','border','border-gray-300');
+  renderProducts();
+}
+
+// FIX: Wait for DOM ready before attaching event listeners
+document.addEventListener('DOMContentLoaded', function() {
+  var searchEl = document.getElementById('search-input');
+  if (searchEl) {
+    var debounceTimer;
+    searchEl.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(renderProducts, 150);
+    });
+    // Keyboard shortcut: / to focus search, Escape to clear
+    document.addEventListener('keydown', function(e) {
+      if (e.key === '/' && document.activeElement !== searchEl && !document.querySelector('.modal-overlay:not(.hidden)')) {
+        e.preventDefault(); searchEl.focus();
+      }
+      if (e.key === 'Escape' && document.activeElement === searchEl) { searchEl.blur(); searchEl.value = ''; renderProducts(); }
+      if (e.key === 'F8' && !document.querySelector('.modal-overlay:not(.hidden)')) { e.preventDefault(); if (cart.length > 0) openPaymentModal(); }
+      if (e.key === 'Enter' && document.activeElement === searchEl) { e.preventDefault(); var p = products[0]; if (p) addToCart(p.id); }
+    });
+  }
+});
+
+// ===== SHIFT (ENHANCED) =====
+function computeShiftStats() {
+  // Hitung total per metode bayar dari transaksi shift ini
+  var txns = [];
+  try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
+  var shiftStart = new Date(shiftStartTime);
+  var stats = { tunai: 0, qris: 0, debit_kredit: 0, ewallet: 0, total: 0, count: 0 };
+  txns.forEach(function(t) {
+    var d = new Date(t.created_at);
+    if (d >= shiftStart && t.status !== 'void') {
+      var val = t.total || t.subtotal || 0;
+      var m = t.metode_bayar || 'tunai';
+      stats[m] = (stats[m] || 0) + val;
+      stats.total += val;
+      stats.count++;
+    }
+  });
+  return stats;
+}
+
+function toggleShiftDialog() {
+  var dialog = document.getElementById('shift-dialog');
+  if (dialog.classList.contains('hidden')) {
+    document.getElementById('shift-open').classList.toggle('hidden', shiftActive);
+    document.getElementById('shift-close').classList.toggle('hidden', !shiftActive);
+    document.getElementById('shift-history-section').classList.remove('hidden');
+    renderShiftHistory();
+    
+    if (shiftActive) {
+      var stats = computeShiftStats();
+      document.getElementById('close-modal-awal').textContent = 'Rp ' + shiftModalAwal.toLocaleString('id');
+      document.getElementById('close-tunai').textContent = 'Rp ' + stats.tunai.toLocaleString('id');
+      document.getElementById('close-qris').textContent = 'Rp ' + stats.qris.toLocaleString('id');
+      document.getElementById('close-debit').textContent = 'Rp ' + stats.debit_kredit.toLocaleString('id');
+      document.getElementById('close-ewallet').textContent = 'Rp ' + stats.ewallet.toLocaleString('id');
+      document.getElementById('close-expected').textContent = 'Rp ' + (shiftModalAwal + stats.tunai).toLocaleString('id');
+      // Pre-fill kas akhir = expected (ease of use)
+      document.getElementById('kas-akhir').value = shiftModalAwal + stats.tunai;
+      document.getElementById('kas-akhir').setAttribute('placeholder', 'Ekspektasi: Rp ' + (shiftModalAwal + stats.tunai).toLocaleString('id'));
+      // Show selisih on input change
+      document.getElementById('kas-akhir').oninput = function() {
+        var aktual = parseInt(this.value) || 0;
+        var expected = shiftModalAwal + stats.tunai;
+        var selisih = aktual - expected;
+        var info = document.getElementById('selisih-info');
+        info.classList.remove('hidden');
+        if (selisih > 0) info.innerHTML = '🟢 <b>Lebih Rp ' + selisih.toLocaleString('id') + '</b> — kelebihan setor';
+        else if (selisih < 0) info.innerHTML = '🔴 <b>Kurang Rp ' + Math.abs(selisih).toLocaleString('id') + '</b> — cek ulang';
+        else info.innerHTML = '✅ <b>Pas!</b> Tidak ada selisih';
+      };
+      document.getElementById('kas-akhir').oninput(); // trigger initial
+    }
+    dialog.classList.remove('hidden');
+  } else {
+    dialog.classList.add('hidden');
+  }
+}
+
+function openShift() {
+  shiftModalAwal = parseInt(document.getElementById('modal-awal').value) || 0;
+  if (shiftModalAwal <= 0) { showToast('⚠️ Isi modal awal'); return; }
+  shiftActive = true;
+  shiftKasAkhir = shiftModalAwal;
+  totalTrxValue = 0;
+  document.getElementById('shift-dialog').classList.add('hidden');
+  var badge = document.getElementById('shift-badge');
+  badge.innerHTML = '<span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Shift Aktif · 00:00';
+  badge.className = 'flex items-center gap-1.5 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-xs font-medium cursor-pointer';
+  shiftStartTime = new Date();
+  // Save structured shift data
+  var shiftData = { status:'open', startTime: shiftStartTime.toISOString(), modalAwal: shiftModalAwal, kasir: localStorage.getItem('apotek_pos_user')||'Kasir', outlet: localStorage.getItem('apotek_pos_outlet')||'Outlet Pusat' };
+  localStorage.setItem('apotek_pos_shift_data', JSON.stringify(shiftData));
+  localStorage.setItem('apotek_pos_shift_active', 'true');
+  localStorage.setItem('apotek_pos_shift_modal_awal', shiftModalAwal.toString());
+  showToast('✅ Shift dibuka — Modal: Rp ' + shiftModalAwal.toLocaleString('id'));
+  renderProducts();
+}
+
+function closeShift() {
+  var kasAkhir = parseInt(document.getElementById('kas-akhir').value);
+  if (isNaN(kasAkhir)) { showToast('⚠️ Isi jumlah kas aktual dulu'); return; }
+  var stats = computeShiftStats();
+  var expected = shiftModalAwal + stats.tunai;
+  var selisih = kasAkhir - expected;
+  
+  shiftActive = false;
+  shiftKasAkhir = kasAkhir;
+  document.getElementById('shift-dialog').classList.add('hidden');
+  var badge = document.getElementById('shift-badge');
+  badge.innerHTML = '<span class="w-2 h-2 bg-gray-400 rounded-full"></span> Shift Ditutup';
+  badge.className = 'flex items-center gap-1.5 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full text-xs font-medium';
+  
+  // Save shift history
+  var history = [];
+  try { history = JSON.parse(localStorage.getItem('apotek_pos_shift_history') || '[]'); } catch(e) {}
+  history.unshift({
+    id: 'shift-'+Date.now(),
+    startTime: shiftStartTime.toISOString(),
+    endTime: new Date().toISOString(),
+    modalAwal: shiftModalAwal,
+    kasAkhir: kasAkhir,
+    expected: expected,
+    selisih: selisih,
+    totalTrx: stats.total,
+    count: stats.count,
+    tunai: stats.tunai,
+    qris: stats.qris,
+    debit: stats.debit_kredit,
+    ewallet: stats.ewallet,
+    kasir: localStorage.getItem('apotek_pos_user')||'Kasir',
+    outlet: localStorage.getItem('apotek_pos_outlet')||'Outlet Pusat'
+  });
+  localStorage.setItem('apotek_pos_shift_history', JSON.stringify(history.slice(0, 50)));
+  localStorage.removeItem('apotek_pos_shift_data');
+  localStorage.setItem('apotek_pos_shift_active', 'false');
+  showToast('🔒 Shift ditutup — Selisih: Rp ' + selisih.toLocaleString('id') + ' | ' + stats.count + ' transaksi, Rp ' + stats.total.toLocaleString('id'));
+  renderProducts();
+}
+
+function renderShiftHistory() {
+  var history = [];
+  try { history = JSON.parse(localStorage.getItem('apotek_pos_shift_history') || '[]'); } catch(e) {}
+  var list = document.getElementById('shift-history-list');
+  if (!list) return;
+  if (!history.length) { list.innerHTML = '<p class="text-gray-400">Belum ada riwayat shift</p>'; return; }
+  list.innerHTML = history.slice(0, 10).map(function(s) {
+    var selisihClass = s.selisih > 0 ? 'text-green-600' : s.selisih < 0 ? 'text-red-600' : 'text-gray-500';
+    return '<div class="flex justify-between py-1 border-b border-gray-100 dark:border-gray-700">'+
+      '<span>'+new Date(s.startTime).toLocaleString('id-ID')+'</span>'+
+      '<span class="font-mono">Rp '+s.totalTrx.toLocaleString('id')+'</span>'+
+      '<span class="'+selisihClass+'">'+(s.selisih>0?'+':'')+'Rp '+s.selisih.toLocaleString('id')+'</span>'+
+      '</div>';
+  }).join('');
+}
+
+// ===== VALIDASI OBAT KERAS =====
+// FIX: Validation state tied to user role, not localStorage bypass
+function isKerasBypassEnabled() {
+  // Only Admin (Apoteker) can bypass — check role from parent localStorage
+  const role = localStorage.getItem('apotek_pos_role');
+  return role === 'admin' || role === 'owner';
+}
+
+function openValidasiDialog() {
+  document.getElementById('validasi-dialog').classList.remove('hidden');
+}
+function closeValidasiDialog() {
+  document.getElementById('validasi-dialog').classList.add('hidden');
+}
+function confirmValidasi() {
+  closeValidasiDialog();
+  // Lanjutkan transaksi yang tertunda
+  if (window._pendingKerasProduct) {
+    addToCartHandler(window._pendingKerasProduct);
+    window._pendingKerasProduct = null;
+  }
+}
+
+// ===== CART =====
+function addToCart(productId) {
+  try {
+    if (!products || !products.length) { showToast('⚠️ Data produk belum siap, coba refresh'); return; }
+    var product = products.find(function(p) { return p.id === productId; });
+    if (!product) { showToast('⚠️ Produk tidak ditemukan: ' + productId); return; }
+    if ((product.stok || 0) <= 0) { showToast('⚠️ Stok ' + product.nama_dagang + ' habis'); return; }
+    if (!shiftActive) { showToast('⚠️ Buka shift terlebih dahulu'); return; }
+    
+    // Cek validasi obat keras
+    if (product.category === 'keras' && !isKerasBypassEnabled()) {
+      window._pendingKerasProduct = product;
+      openValidasiDialog();
+      return;
+    }
+    addToCartHandler(product);
+  } catch(e) { showToast('❌ Error: ' + e.message); }
+}
+
+function addToCartHandler(product) {
+  // Tolak jika stok habis (safety net)
+  if ((product.stok || 0) <= 0) {
+    showToast('⚠️ Stok ' + product.nama_dagang + ' habis');
+    return;
+  }
+  const existing = cart.find(c => c.productId === product.id);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    cart.push({
+      productId: product.id,
+      name: product.nama_dagang,
+      price: product.harga_jual,
+      qty: 1,
+      image: product.image || '💊',
+      isResep: false,
+      resepPasien: null
+    });
+  }
+  renderCart();
+  // Auto-expand cart panel when items added
+  var cartPanel = document.querySelector('.cart-panel');
+  if (cartPanel) { cartPanel.classList.remove('collapsed'); sidebarCollapsed = false; }
+  showToast('✅ ' + product.nama_dagang + ' ditambahkan');
+}
+
+function removeFromCart(index) {
+  cart.splice(index, 1);
+  renderCart();
+}
+
+function updateCartQty(index, delta) {
+  cart[index].qty += delta;
+  if (cart[index].qty <= 0) cart.splice(index, 1);
+  renderCart();
+}
+
+function renderCart() {
+  const tbody = document.getElementById('cart-body');
+  const subtotal = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
+  
+  tbody.innerHTML = cart.map((c, i) => `
+    <tr class="cart-enter row-hover">
+      <td class="px-3 py-2 text-xs font-medium">${c.name}${c.isResep ? ' 🏥' : ''}</td>
+      <td class="px-3 py-2 text-xs text-center">
+        <button onclick="updateCartQty(${i}, -1)" class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-bold">−</button>
+        <span class="mx-1.5 font-mono text-xs">${c.qty}</span>
+        <button onclick="updateCartQty(${i}, 1)" class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-bold">+</button>
+      </td>
+      <td class="px-3 py-2 text-xs font-mono text-right">Rp ${(c.price * c.qty).toLocaleString('id')}</td>
+      <td class="px-2 py-2 text-center"><button onclick="removeFromCart(${i})" class="text-red-400 hover:text-red-600 text-xs">✕</button></td>
+    </tr>
+  `).join('');
+  
+  document.getElementById('cart-total').textContent = 'Rp ' + subtotal.toLocaleString('id');
+  document.getElementById('cart-count').textContent = cart.length;
+  
+  // Disable bayar button if cart empty or no shift
+  document.getElementById('btn-bayar').disabled = cart.length === 0 || !shiftActive;
+}
+
+// ===== PAYMENT =====
+function openPaymentModal() {
+  if (cart.length === 0) { showToast('⚠️ Keranjang kosong'); return; }
+  if (!shiftActive) { showToast('⚠️ Buka shift terlebih dahulu'); return; }
+  var lastMethod = localStorage.getItem('apotek_pos_last_payment') || 'tunai';
+  selectedPaymentMethod = null;
+  selectedEwallet = null;
+  document.getElementById('payment-modal').classList.remove('hidden');
+  document.getElementById('btn-finish').disabled = true;
+  document.getElementById('tunai-received').value = '';
+  document.getElementById('change-amount').textContent = 'Rp 0';
+  document.getElementById('change-amount').classList.remove('text-red-600', 'text-green-600');
+  document.querySelectorAll('.payment-method-btn').forEach(b => b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white'));
+  document.getElementById('tunai-input').classList.add('hidden');
+  document.getElementById('nontunai-input').classList.add('hidden');
+  // Auto-select remembered payment method
+  setTimeout(function() {
+    var btns = document.querySelectorAll('.payment-method-btn');
+    var labels = { tunai: 'Tunai', qris: 'QRIS', debit_kredit: 'Debit', ewallet: 'Wallet' };
+    btns.forEach(function(b) {
+      if (b.textContent.includes(labels[lastMethod] || 'Tunai')) b.click();
+    });
+    // Pre-fill tunai with rounded amount
+    if (lastMethod === 'tunai') {
+      var total = cart.reduce(function(s,c) { return s + c.price * c.qty; }, 0);
+      var rounded = Math.ceil(total / 10000) * 10000;
+      if (rounded < total + 10000) rounded = Math.ceil(total / 5000) * 5000;
+      document.getElementById('tunai-received').value = rounded > 0 ? rounded : total;
+      calcChange();
+    }
+  }, 100);
+}
+
+function closePaymentModal() {
+  document.getElementById('payment-modal').classList.add('hidden');
+}
+
+function selectPaymentMethod(method, el) {
+  selectedPaymentMethod = method;
+  selectedEwallet = null;
+  document.querySelectorAll('.payment-method-btn').forEach(b => {
+    b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white');
+    b.classList.add('bg-white','dark:bg-gray-800','border','border-gray-300');
+  });
+  el.classList.add('bg-orange-accent','dark:bg-orange-600','text-white');
+  el.classList.remove('bg-white','dark:bg-gray-800','border','border-gray-300');
+  
+  document.getElementById('tunai-input').classList.toggle('hidden', method !== 'tunai');
+  document.getElementById('nontunai-input').classList.toggle('hidden', method === 'tunai');
+  // FIX: Show ewallet buttons only when ewallet is selected
+  var ewalletDiv = document.getElementById('ewallet-select');
+  if (ewalletDiv) ewalletDiv.classList.toggle('hidden', method !== 'ewallet');
+  
+  // Reset ewallet sub-buttons
+  document.querySelectorAll('.ewallet-sub-btn').forEach(b => {
+    b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white');
+    b.classList.add('bg-white','dark:bg-gray-800','border','border-gray-300');
+  });
+  
+  // Reset checkbox
+  var cb = document.getElementById('paid-confirmed');
+  if (cb) cb.checked = false;
+  
+  checkFinishEnabled();
+}
+
+function selectEwallet(wallet, el) {
+  selectedEwallet = wallet;
+  document.querySelectorAll('.ewallet-sub-btn').forEach(b => b.classList.remove('border-accent', 'bg-sky-50', 'border-2'));
+  // FIX: :contains() is jQuery-only, invalid in vanilla JS. Use data attribute.
+  const walletLabels = { gopay: 'GoPay', ovo: 'OVO', dana: 'DANA' };
+  const targetLabel = walletLabels[wallet] || '';
+  document.querySelectorAll('.ewallet-sub-btn').forEach(b => {
+    if (b.textContent.trim() === targetLabel) {
+      b.classList.add('border-accent', 'bg-sky-50', 'border-2');
+    }
+  });
+  checkFinishEnabled();
+}
+
+function calcChange() {
+  const subtotal = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
+  const received = parseInt(document.getElementById('tunai-received').value) || 0;
+  const change = received - subtotal;
+  document.getElementById('change-amount').textContent = change >= 0 ? 'Rp ' + change.toLocaleString('id') : 'Rp 0';
+  document.getElementById('change-amount').classList.toggle('text-red-600', change < 0);
+  document.getElementById('change-amount').classList.toggle('text-green-600', change >= 0);
+  checkFinishEnabled();
+}
+
+function checkFinishEnabled() {
+  const btn = document.getElementById('btn-finish');
+  if (!selectedPaymentMethod) { btn.disabled = true; return; }
+  if (selectedPaymentMethod === 'tunai') {
+    const subtotal = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
+    const received = parseInt(document.getElementById('tunai-received').value) || 0;
+    btn.disabled = received < subtotal;
+  } else if (selectedPaymentMethod === 'ewallet') {
+    // E-wallet: harus pilih jenis + centang
+    var cb = document.getElementById('paid-confirmed');
+    btn.disabled = !selectedEwallet || !(cb && cb.checked);
+  } else {
+    // QRIS, Debit/Kredit: wajib centang
+    var cb2 = document.getElementById('paid-confirmed');
+    btn.disabled = !(cb2 && cb2.checked);
+  }
+}
+
+// FIX: attach in DOMContentLoaded (element not ready when script in head runs)
+document.addEventListener('DOMContentLoaded', function() {
+  var cb = document.getElementById('paid-confirmed');
+  if (cb) cb.addEventListener('change', checkFinishEnabled);
+});
+
+// ===== FINISH TRANSACTION =====
+async function finishTransaction() {
+  const subtotal = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
+  totalTrxValue += subtotal;
+
+  const now = new Date();
+  const trxNo = '#TRX-' + now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '-' + String(Math.floor(Math.random()*9000)+1000);
+  document.getElementById('success-trx-no').textContent = trxNo;
+  document.getElementById('success-total').textContent = 'Rp ' + subtotal.toLocaleString('id');
+
+  let methodLabel = selectedPaymentMethod;
+  if (selectedPaymentMethod === 'ewallet') methodLabel = selectedEwallet || 'ewallet';
+  else if (selectedPaymentMethod === 'debit_kredit') methodLabel = 'debit/kredit';
+  else if (selectedPaymentMethod === 'qris') methodLabel = 'qris';
+  document.getElementById('success-method').textContent = methodLabel.toUpperCase();
+
+  const received = selectedPaymentMethod === 'tunai' ? (parseInt(document.getElementById('tunai-received').value) || subtotal) : subtotal;
+  const totalBelanja = subtotal;
+  let kembalian = selectedPaymentMethod === 'tunai' ? received - subtotal : 0;
+
+  // THERMAL PRINT: Gunakan CSS classes murni (no inline styles) agar @media print berfungsi penuh
+  const itemRows = cart.map(c => {
+    const sub = c.qty * c.price;
+    return `
+      <div class="print-row"><span>${c.name}</span></div>
+      <div class="print-row print-sm">  ${c.qty} x ${c.price.toLocaleString('id-ID')} = <span class="print-right">${sub.toLocaleString('id-ID')}</span></div>
+    `;
+  }).join('');
+
+  document.getElementById('print-area').innerHTML = `
+    <div class="print-center print-bold print-lg">${apotekNama}</div>
+    <div class="print-center print-sm">${apotekAlamat}</div>
+    <div class="print-center print-sm">${apotekTelp}</div>
+    <div class="print-dashed"></div>
+    <div class="print-row"><span>Nota : ${trxNo}</span></div>
+    <div class="print-row"><span>Tgl  : ${now.toLocaleString('id-ID')}</span></div>
+    <div class="print-row"><span>Kasir: ${localStorage.getItem('apotek_pos_user') || 'Admin'}</span></div>
+    <div class="print-double"></div>
+    ${itemRows}
+    <div class="print-dashed"></div>
+    <div class="print-row print-bold"><span>TOTAL:</span><span class="print-right">${totalBelanja.toLocaleString('id-ID')}</span></div>
+    <div class="print-row"><span>BAYAR (${methodLabel.toUpperCase()}):</span><span class="print-right">${received.toLocaleString('id-ID')}</span></div>
+    <div class="print-row"><span>KEMBALI:</span><span class="print-right">${kembalian.toLocaleString('id-ID')}</span></div>
+    <div class="print-double"></div>
+    <div class="print-center print-sm" style="margin-top:6px;margin-bottom:12px;">${apotekFooter.replace(/\n/g,'<br>')}</div>
+  `;
+
+  const itemsSnapshot = cart.map(c => ({ productId: c.productId, name: c.name, qty: c.qty, price: c.price, isResep: c.isResep || false, pasien: c.resepPasien || null }));
+
+  window._lastTransaction = {
+    trxNo, now, subtotal, received, change: kembalian, methodLabel,
+    cart: itemsSnapshot, apotekNama, apotekAlamat, apotekTelp, apotekFooter
+  };
+
+  // Persist transaction
+  persistCompletedTransaction(trxNo, subtotal, received, kembalian, methodLabel, itemsSnapshot);
+
+  // Reduce stock — FEFO batch deduction
+  reduceProductStocks(itemsSnapshot);
+  // Tambah batch info ke struk jika ada FEFO data
+  var fefoData = window._lastFEFODeduction || [];
+  if (fefoData.length > 0) {
+    var batchRows = fefoData.filter(function(d) { return d.batch; }).map(function(d) {
+      var expShort = d.expiry ? new Date(d.expiry).toLocaleDateString('id-ID', {day:'2-digit',month:'short'}) : '-';
+      return '<div class="print-row print-sm"><span>  Batch: ' + d.batch + ' (exp: ' + expShort + ')</span><span class="print-right">-' + d.taken + '</span></div>';
+    }).join('');
+    if (batchRows) {
+      var pa = document.getElementById('print-area');
+      if (pa) {
+        var cur = pa.innerHTML;
+        pa.innerHTML = cur.replace('<div class="print-double"></div>\n    <div class="print-center', 
+          '<div class="print-dashed"></div><div class="print-center print-sm" style="font-size:8px;">📦 FEFO Batch:</div>' + batchRows + '<div class="print-double"></div>\n    <div class="print-center');
+      }
+    }
+  }
+
+  // Show success modal
+  document.getElementById('payment-modal').classList.add('hidden');
+  document.getElementById('success-modal').classList.remove('hidden');
+  document.getElementById('customer-wa').value = '';
+
+  // Save payment method preference
+  localStorage.setItem('apotek_pos_last_payment', selectedPaymentMethod);
+  // Clear cart
+  cart = [];
+  renderCart();
+  // Auto-collapse cart when empty
+  var cartPanel = document.querySelector('.cart-panel');
+  if (cartPanel && cart.length === 0) { cartPanel.classList.add('collapsed'); sidebarCollapsed = true; }
+  renderProducts();
+}
+
+function persistCompletedTransaction(trxNo, subtotal, received, kembalian, methodLabel, items) {
+  const trx = {
+    id: 'trx-' + Date.now(),
+    trx_no: trxNo,
+    subtotal, total: subtotal, received, change: kembalian,
+    metode_bayar: methodLabel,
+    items: items,
+    created_at: new Date().toISOString()
+  };
+  // Save via ApotekDB bridge (Supabase or localStorage)
+  if (typeof ApotekDB !== 'undefined' && ApotekDB.saveTransaction) {
+    ApotekDB.saveTransaction(trx).then(() => {}).catch(() => {
+      // Fallback localStorage
+      let txns = [];
+      try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
+      txns.unshift(trx);
+      localStorage.setItem('apotek_pos_transactions', JSON.stringify(txns));
+    });
+  } else {
+    let txns = [];
+    try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
+    txns.unshift(trx);
+    localStorage.setItem('apotek_pos_transactions', JSON.stringify(txns));
+  }
+}
+
+function reduceProductStocks(items) {
+  if (!window.ProductDB) return;
+  window._lastFEFODeduction = [];
+  items.forEach(function(item) {
+    var result = ProductDB.reduceStockFEFO 
+      ? ProductDB.reduceStockFEFO(item.productId, item.qty)
+      : ProductDB.reduceStock(item.productId, item.qty);
+    if (result && result.deducted) {
+      result.deducted.forEach(function(d) { d.productName = item.name; });
+      window._lastFEFODeduction = window._lastFEFODeduction.concat(result.deducted);
+    }
+  });
+}
+
+function closeSuccessModal() {
+  document.getElementById('success-modal').classList.add('hidden');
+}
+
+// ===== RESEP =====
+function openResepPanel() {
+  document.getElementById('resep-panel').classList.toggle('hidden');
+}
+function addResepItem() {
+  // FIX: Cari produk keras pertama yang tersedia sebagai default
+  const kerasProducts = getProducts().filter(p => p.category === 'keras' && (p.stok > 0));
+  if (kerasProducts.length === 0) { showToast('⚠️ Tidak ada produk resep tersedia'); return; }
+  const product = kerasProducts[0];
+  const pasien = document.getElementById('resep-pasien').value.trim() || 'Pasien';
+  cart.push({
+    productId: product.id,
+    name: product.nama_dagang,
+    price: product.harga_jual,
+    qty: 1,
+    image: product.image || '💊',
+    isResep: true,
+    resepPasien: pasien
+  });
+  renderCart();
+  renderProducts();
+  updatePaymentButton();
+  showToast('Resep ditambahkan ke keranjang');
+}
+
+// ===== PRINT & WHATSAPP =====
+function printStruk() {
+  // @media print CSS otomatis menampilkan #print-area & menyembunyikan elemen lain.
+  // Tidak perlu toggle class hidden — biarkan CSS yang bekerja.
+  var pa = document.getElementById('print-area');
+  if (!pa || !pa.innerHTML.trim()) {
+    showToast('⚠️ Tidak ada struk untuk dicetak');
+    return;
+  }
+  window.print();
+}
+
+function kirimDigital() {
+  var d = window._lastTransaction;
+  if (!d) { showToast('⚠️ Tidak ada data transaksi'); return; }
+
+  var wa = (document.getElementById('customer-wa').value || '').replace(/[^0-9]/g, '');
+  if (!wa) { showToast('⚠️ Masukkan nomor WA pelanggan terlebih dahulu'); document.getElementById('customer-wa').focus(); return; }
+  if (!wa.startsWith('62')) wa = '62' + wa.replace(/^0+/, '');
+  
+  // Auto-save nomor WA ke database kontak (marketing asset)
+  autoSaveContact(wa);
+
+  var tgl = d.now.toLocaleDateString('id', {day:'numeric',month:'long',year:'numeric'});
+  var jam = d.now.toLocaleTimeString('id', {hour:'2-digit',minute:'2-digit'});
+
+  // Format WA — mirip struk cetak, branding + friendly
+  var sep = '━━━━━━━━━━━━━━━━━━━━━━━━';
+  var msg = '*🏥 ' + d.apotekNama + '*\n';
+  msg += d.apotekAlamat + '\n📞 ' + d.apotekTelp + '\n';
+  msg += sep + '\n';
+  msg += d.trxNo + '\n' + tgl + ' ' + jam + '\n';
+  msg += sep + '\n';
+  d.cart.forEach(function(c) {
+    msg += c.qty + 'x ' + c.name + '  Rp' + (c.price*c.qty).toLocaleString('id') + '\n';
+  });
+  msg += sep + '\n';
+  msg += '*TOTAL  : Rp' + d.subtotal.toLocaleString('id') + '*\n';
+  msg += 'Bayar  : ' + d.methodLabel.toUpperCase();
+  if (d.received > 0) msg += ' Rp' + d.received.toLocaleString('id');
+  if (d.change > 0) msg += '\nKembali: Rp' + d.change.toLocaleString('id');
+  msg += '\n' + sep + '\n';
+  msg += '💊 ' + d.apotekFooter.replace(/\n/g, '\n');
+  msg += '\n\nTerima kasih — sehat selalu 🙏';
+
+  // Panggil /api/send-wa dengan timeout 8 detik, fallback ke wa.me
+  var controller = new AbortController();
+  var timeout = setTimeout(function() { controller.abort(); }, 8000);
+
+  fetch('http://localhost:8000/api/send-wa', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ number: wa, message: msg }),
+    signal: controller.signal
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    clearTimeout(timeout);
+    if (data && data.success) {
+      showToast('📱 Struk digital terkirim via WhatsApp');
+    } else {
+      showToast('⚠️ Server WA belum siap — membuka wa.me');
+      window.open('https://wa.me/' + wa + '?text=' + encodeURIComponent(msg), '_blank');
+    }
+  }).catch(function() {
+    clearTimeout(timeout);
+    window.open('https://wa.me/' + wa + '?text=' + encodeURIComponent(msg), '_blank');
+    showToast('📱 Membuka WhatsApp...');
+  });
+}
+
+// ===== UTILS =====
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.remove('hidden');
+  toast.classList.add('opacity-100');
+  setTimeout(() => {
+    toast.classList.add('opacity-0');
+    setTimeout(() => toast.classList.add('hidden'), 300);
+  }, 2000);
+}
+
+// FIX: sidebar collapse toggle
+var sidebarCollapsed = false;
+function toggleSidebar() {
+  sidebarCollapsed = !sidebarCollapsed;
+  var sidebar = document.querySelector('.cart-panel');
+  var main = document.querySelector('.product-area');
+  if (sidebar) {
+    if (sidebarCollapsed) {
+      sidebar.classList.add('collapsed');
+    } else {
+      sidebar.classList.remove('collapsed');
+    }
+  }
+  showToast(sidebarCollapsed ? '📌 Keranjang disembunyikan' : '🛒 Keranjang ditampilkan');
+}
+
+function toggleFullScreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+function updatePaymentButton() {
+  document.getElementById('btn-bayar').disabled = cart.length === 0 || !shiftActive;
+}
+
+// Auto-save nomor WA ke kontak (marketing)
+function autoSaveContact(waNumber) {
+  try {
+    var contacts = JSON.parse(localStorage.getItem('apotek_kontak') || '[]');
+    var exists = contacts.find(function(c) { return c.no_hp && c.no_hp.replace(/[^0-9]/g,'') === waNumber; });
+    if (!exists) {
+      contacts.unshift({
+        id: 'kontak-auto-' + Date.now(),
+        tipe: 'pelanggan',
+        kode: 'AUTO-' + Date.now().toString(36).toUpperCase(),
+        nama: 'Pelanggan ' + waNumber.slice(-4),
+        no_hp: waNumber,
+        created_at: new Date().toISOString()
+      });
+      localStorage.setItem('apotek_kontak', JSON.stringify(contacts));
+    }
+  } catch(e) {}
+}
+
+// ===== RIWAYAT =====
+function renderRiwayat() {
+  var txns = [];
+  try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
+  // Filter
+  var start = (document.getElementById('riw-tgl-start')||{}).value || '';
+  var end = (document.getElementById('riw-tgl-end')||{}).value || '';
+  var search = ((document.getElementById('riw-search')||{}).value || '').toLowerCase();
+  var metode = (document.getElementById('riw-metode')||{}).value || '';
+  if (start) { var sd = new Date(start); txns = txns.filter(function(t) { return new Date(t.created_at) >= sd; }); }
+  if (end) { var ed = new Date(end); ed.setHours(23,59,59); txns = txns.filter(function(t) { return new Date(t.created_at) <= ed; }); }
+  if (search) txns = txns.filter(function(t) { return (t.trx_no||t.id||'').toLowerCase().includes(search); });
+  if (metode) txns = txns.filter(function(t) { return t.metode_bayar === metode; });
+
+  var tbody = document.getElementById('riwayat-table-body');
+  var countEl = document.getElementById('riw-count');
+  if (!tbody) return;
+  if (countEl) countEl.textContent = txns.length + ' transaksi';
+  
+  if (txns.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Tidak ada transaksi ditemukan</td></tr>';
+    return;
+  }
+  var display = txns.slice(0, 50);
+  tbody.innerHTML = display.map(function(t) {
+    var isVoid = t.status === 'void';
+    return '<tr class="row-hover'+(isVoid?' opacity-50 line-through':'')+'">'+
+      '<td class="px-4 py-3 text-xs font-mono">'+(t.trx_no||t.id)+'</td>'+
+      '<td class="px-4 py-3 text-xs">'+new Date(t.created_at).toLocaleString('id-ID')+'</td>'+
+      '<td class="px-4 py-3 text-xs">'+(t.items||[]).length+' item</td>'+
+      '<td class="px-4 py-3 text-xs font-mono text-right">Rp '+(t.total||t.subtotal||0).toLocaleString('id')+'</td>'+
+      '<td class="px-4 py-3 text-xs">'+(t.metode_bayar||'tunai').toUpperCase()+'</td>'+
+      '<td class="px-4 py-3 text-center">'+(isVoid ? '<span class="text-xs text-red-500">❌ Void</span>' : '<button onclick="voidTransaction(\''+(t.trx_no||t.id)+'\')" class="text-xs text-red-500 hover:text-red-700 hover:underline">↩ Void</button>')+'</td>'+
+      '</tr>';
+  }).join('');
+}
+
+// FIX: Void transaction — restore stock + mark as void
+function voidTransaction(trxNo) {
+  if (!confirm('⚠️ Batalkan transaksi '+trxNo+'?\nStok akan dikembalikan otomatis.')) return;
+  var txns = [];
+  try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
+  var idx = txns.findIndex(function(t) { return (t.trx_no||t.id) === trxNo; });
+  if (idx < 0) return;
+  var trx = txns[idx];
+  if (trx.status === 'void') { showToast('⚠️ Transaksi sudah dibatalkan sebelumnya'); return; }
+  
+  // Restore stock via ProductDB
+  try {
+    (trx.items||[]).forEach(function(item) {
+      var pid = item.productId || item.kode;
+      var qty = parseInt(item.qty) || 0;
+      if (pid && qty > 0 && window.ProductDB && ProductDB.reduceStock) {
+        ProductDB.reduceStock(pid, -qty); // negative qty = add back
+      }
+    });
+  } catch(e) {}
+  
+  // Mark as void
+  trx.status = 'void';
+  txns[idx] = trx;
+  localStorage.setItem('apotek_pos_transactions', JSON.stringify(txns));
+  showToast('↩ Transaksi ' + trxNo + ' dibatalkan — stok dikembalikan');
+  renderRiwayat();
+}
+
+// ===== COMING SOON =====
+function comingSoon(feature) {
+  alert('Fitur ' + feature + ' sedang dalam tahap pengembangan dan akan terhubung ke Supabase di rilis selanjutnya.');
+}
+</script>
+
+<script>
+  // Shift Timer Logic
+  let shiftStartTime = new Date();
+  // FIX: Jangan mock 4 jam — gunakan waktu sebenarnya
+  // Jika shift aktif dari localStorage, gunakan itu; jika tidak, reset
+  
+  function updateShiftTime() {
+    const now = new Date();
+    const diffMs = now - shiftStartTime;
+    const diffHrs = Math.floor(diffMs / 3600000);
+    const diffMins = Math.floor((diffMs % 3600000) / 60000);
+    const diffSecs = Math.floor((diffMs % 60000) / 1000);
+    const badge = document.getElementById('shift-badge');
+    if (badge && shiftActive) {
+      badge.innerHTML = '<span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Shift Aktif · ' +
+        String(diffHrs).padStart(2,'0') + ':' + String(diffMins).padStart(2,'0') + ':' + String(diffSecs).padStart(2,'0');
+    }
+  }
+  setInterval(updateShiftTime, 1000);
+</script>
+<script>
+function processPayment() {
+  finishTransaction();
+}
+</script>
+<body class="bg-dashboard-gray dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors">
+
+<!-- ===== TOP BAR ===== -->
+<header class="sticky top-0 z-40 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 card-shadow">
+  <div class="flex items-center gap-3">
+    <span class="text-lg font-bold text-primary font-mono" id="kasir-header-name">💊 ApotekPOS</span>
+    <select class="text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-gray-900 dark:text-gray-100">
+      <option>Outlet Pusat</option>
+    </select>
+  </div>
+  <div class="flex items-center gap-4">
+    <button onclick="toggleSidebar()" title="Hide/Show Keranjang" class="p-2 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 mr-1">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <button onclick="toggleFullScreen()" title="Fullscreen Kasir" class="p-2 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+    </button>
+    <div id="shift-badge" class="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium cursor-pointer hover:bg-green-200 transition-colors" onclick="toggleShiftDialog()">
+      <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+      Shift Aktif · 00:00
+    </div>
+    <button onclick="toggleDarkMode()" class="p-2 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300">
+      <svg id="sun-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ===== SHIFT DIALOG (Enhanced) ===== -->
+<div id="shift-dialog" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center" onclick="if(event.target===this)toggleShiftDialog()">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <h3 class="text-lg font-bold mb-4">💰 Manajemen Shift</h3>
+    <!-- OPEN SHIFT -->
+    <div id="shift-open" class="hidden">
+      <label class="block text-xs font-medium mb-1">Modal Awal (Rp)</label>
+      <input type="number" id="modal-awal" value="500000" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono mb-4">
+      <button onclick="openShift()" class="w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700">🔓 Buka Shift</button>
+    </div>
+    <!-- CLOSE SHIFT -->
+    <div id="shift-close" class="hidden">
+      <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-4 text-sm space-y-2">
+        <div class="flex justify-between"><span>Modal Awal</span><span class="font-mono font-bold" id="close-modal-awal">Rp 0</span></div>
+        <hr class="border-gray-200 dark:border-gray-700">
+        <div class="flex justify-between"><span>💵 Tunai Masuk</span><span class="font-mono text-green-600" id="close-tunai">Rp 0</span></div>
+        <div class="flex justify-between"><span>📱 QRIS</span><span class="font-mono" id="close-qris">Rp 0</span></div>
+        <div class="flex justify-between"><span>💳 Debit/Kredit</span><span class="font-mono" id="close-debit">Rp 0</span></div>
+        <div class="flex justify-between"><span>📲 E-Wallet</span><span class="font-mono" id="close-ewallet">Rp 0</span></div>
+        <hr class="border-gray-200 dark:border-gray-700">
+        <div class="flex justify-between font-bold"><span>✅ Ekspektasi Kas Akhir</span><span class="font-mono text-primary" id="close-expected">Rp 0</span></div>
+      </div>
+      <label class="block text-xs font-medium mb-1">Kas Aktual (hitung manual) <span class="text-red-500">*</span></label>
+      <input type="number" id="kas-akhir" value="" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono mb-2">
+      <div id="selisih-info" class="text-xs mb-4 hidden"></div>
+      <button onclick="closeShift()" class="w-full py-2.5 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700">🔒 Tutup Shift</button>
+    </div>
+    <!-- SHIFT HISTORY -->
+    <div id="shift-history-section" class="hidden mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+      <h4 class="text-sm font-semibold mb-2">📜 Riwayat Shift</h4>
+      <div id="shift-history-list" class="text-xs space-y-1 max-h-40 overflow-y-auto"></div>
+    </div>
+    <button onclick="toggleShiftDialog()" class="w-full mt-2 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:bg-gray-900">Tutup</button>
+  </div>
+</div>
+
+<!-- ===== VALIDASI DIALOG ===== -->
+<div id="validasi-dialog" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+    <h3 class="text-lg font-bold mb-2">🔒 Validasi Apoteker</h3>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Obat golongan keras memerlukan validasi Apoteker/Admin.</p>
+    <button onclick="confirmValidasi()" class="w-full py-2.5 bg-orange-accent text-white rounded-lg text-sm font-bold mb-2">✅ Validasi & Lanjutkan</button>
+    <button onclick="closeValidasiDialog()" class="w-full py-2 border border-gray-300 rounded-lg text-sm">Batal</button>
+  </div>
+</div>
+
+<!-- ===== MAIN LAYOUT ===== -->
+<div class="flex h-[calc(100vh-56px)]">
+  <!-- LEFT: Product Grid -->
+  <div class="product-area flex-1 overflow-y-auto p-4">
+    <!-- Search & Kategori -->
+    <div class="mb-4 space-y-3">
+      <input type="text" id="search-input" placeholder="🔍 Cari produk (nama/kode)..." class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-orange-accent outline-none">
+      <div class="flex gap-2 flex-wrap">
+        <button class="kategori-btn bg-orange-accent dark:bg-orange-600 text-white px-3 py-1.5 rounded-full text-xs font-medium" data-kategori="semua" onclick="setKategori('semua',this)">Semua</button>
+        <button class="kategori-btn bg-white dark:bg-gray-800 border border-gray-300 px-3 py-1.5 rounded-full text-xs font-medium" data-kategori="bebas" onclick="setKategori('bebas',this)">Obat Bebas</button>
+        <button class="kategori-btn bg-white dark:bg-gray-800 border border-gray-300 px-3 py-1.5 rounded-full text-xs font-medium" data-kategori="keras" onclick="setKategori('keras',this)">Obat Keras</button>
+        <button class="kategori-btn bg-white dark:bg-gray-800 border border-gray-300 px-3 py-1.5 rounded-full text-xs font-medium" data-kategori="vitamin" onclick="setKategori('vitamin',this)">Vitamin</button>
+      </div>
+    </div>
+    <!-- Product Grid -->
+    <div id="product-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+      <div class="col-span-full text-center py-12 text-gray-400 skeleton">Memuat produk...</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Cart Panel -->
+  <div class="cart-panel w-96 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col h-full">
+    <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+      <h3 class="font-bold">🛒 Keranjang <span id="cart-count" class="text-orange-accent">0</span></h3>
+      <button onclick="openResepPanel()" class="text-xs text-accent hover:underline">+ Resep</button>
+    </div>
+    <!-- Resep Panel -->
+    <div id="resep-panel" class="hidden p-3 border-b border-gray-100 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/20">
+      <input type="text" id="resep-pasien" placeholder="Nama pasien..." class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs mb-2">
+      <button onclick="addResepItem()" class="w-full py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold">Tambah Obat Resep</button>
+    </div>
+    <!-- Cart Items -->
+    <div class="flex-1 overflow-y-auto">
+      <table class="w-full text-sm">
+        <tbody id="cart-body">
+          <tr><td colspan="4" class="px-4 py-12 text-center text-gray-400 text-xs">Keranjang kosong</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Cart Footer -->
+    <div class="p-4 border-t border-gray-100 dark:border-gray-700 space-y-3">
+      <div class="flex justify-between font-bold text-lg">
+        <span>Total</span>
+        <span id="cart-total" class="font-mono text-primary">Rp 0</span>
+      </div>
+      <button id="btn-bayar" onclick="openPaymentModal()" disabled class="w-full py-3 bg-orange-accent dark:bg-orange-600 text-white rounded-xl font-bold text-sm hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed card-shadow">
+        💳 Bayar
+      </button>
+      <!-- Tabs: Kasir | Riwayat -->
+      <div class="flex gap-1 pt-1">
+        <button class="flex-1 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-lg text-xs font-medium" onclick="document.getElementById('riwayat-panel').classList.add('hidden'); this.parentElement.querySelector('.riwayat-tab-btn').classList.remove('bg-orange-accent','text-white'); this.classList.add('bg-green-100','text-green-800')">💰 Kasir</button>
+        <button class="riwayat-tab-btn flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-medium" onclick="document.getElementById('riwayat-panel').classList.remove('hidden'); renderRiwayat(); this.classList.add('bg-orange-accent','text-white');">📋 Riwayat</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RIWAYAT PANEL ===== -->
+<div id="riwayat-panel" class="hidden fixed inset-0 z-50 bg-dashboard-gray dark:bg-gray-900 overflow-y-auto">
+  <div class="max-w-4xl mx-auto p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold">📋 Riwayat Transaksi</h2>
+      <button onclick="document.getElementById('riwayat-panel').classList.add('hidden')" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:bg-gray-900">✕</button>
+    </div>
+    <!-- Filter Bar -->
+    <div class="flex flex-wrap items-center gap-2 mb-3 bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
+      <input type="date" id="riw-tgl-start" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" onchange="renderRiwayat()">
+      <span class="text-xs text-gray-400">s/d</span>
+      <input type="date" id="riw-tgl-end" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" onchange="renderRiwayat()">
+      <input type="text" id="riw-search" placeholder="Cari no.transaksi..." class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" oninput="renderRiwayat()">
+      <select id="riw-metode" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" onchange="renderRiwayat()">
+        <option value="">Semua Metode</option><option value="tunai">Tunai</option><option value="qris">QRIS</option><option value="debit_kredit">Debit/Kredit</option><option value="ewallet">E-Wallet</option>
+      </select>
+      <span class="text-xs text-gray-400" id="riw-count">0 transaksi</span>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+      <table class="w-full">
+        <thead><tr class="bg-gray-50 dark:bg-gray-900 text-xs text-gray-500 dark:text-gray-400"><th class="px-4 py-3 text-left">No. Transaksi</th><th class="px-4 py-3 text-left">Tanggal</th><th class="px-4 py-3 text-left">Item</th><th class="px-4 py-3 text-right">Total</th><th class="px-4 py-3 text-left">Bayar</th><th class="px-4 py-3 text-center">Aksi</th></tr></thead>
+        <tbody id="riwayat-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PAYMENT MODAL ===== -->
+<div id="payment-modal" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center" onclick="if(event.target===this)closePaymentModal()">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+    <h3 class="text-lg font-bold mb-4">💳 Pembayaran</h3>
+    <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg text-center">
+      <span class="text-xs text-gray-500 dark:text-gray-400">Total Bayar</span>
+      <p class="text-2xl font-bold font-mono text-primary" id="payment-total">Rp 0</p>
+    </div>
+    <!-- Payment Methods -->
+    <div class="grid grid-cols-2 gap-2 mb-4">
+      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('tunai',this)">💵 Tunai</button>
+      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('qris',this)">📱 QRIS</button>
+      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('debit_kredit',this)">💳 Debit/Kredit</button>
+      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('ewallet',this)">📲 E-Wallet</button>
+    </div>
+    <!-- Tunai Input -->
+    <div id="tunai-input" class="hidden mb-4">
+      <label class="block text-xs font-medium mb-1">Jumlah Diterima (Rp)</label>
+      <input type="number" id="tunai-received" placeholder="0" oninput="calcChange()" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-lg font-mono focus:ring-2 focus:ring-orange-accent outline-none">
+      <div class="mt-2 text-right"><span class="text-xs text-gray-500 dark:text-gray-400">Kembalian: </span><span id="change-amount" class="font-mono font-bold text-lg">Rp 0</span></div>
+    </div>
+    <!-- Non-Tunai Input -->
+    <div id="nontunai-input" class="hidden mb-4">
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Konfirmasi pembayaran:</p>
+      <label class="flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" id="paid-confirmed" class="w-4 h-4 rounded border-gray-300 text-orange-accent focus:ring-orange-accent">
+        Pembayaran sudah diterima
+      </label>
+      <!-- E-Wallet Sub-Select -->
+      <div id="ewallet-select" class="hidden mt-3">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Pilih E-Wallet:</p>
+        <div class="grid grid-cols-3 gap-2">
+          <button class="ewallet-sub-btn bg-white dark:bg-gray-800 border border-gray-300 p-2 rounded-lg text-xs font-medium" onclick="selectEwallet('gopay',this)">GoPay</button>
+          <button class="ewallet-sub-btn bg-white dark:bg-gray-800 border border-gray-300 p-2 rounded-lg text-xs font-medium" onclick="selectEwallet('ovo',this)">OVO</button>
+          <button class="ewallet-sub-btn bg-white dark:bg-gray-800 border border-gray-300 p-2 rounded-lg text-xs font-medium" onclick="selectEwallet('dana',this)">DANA</button>
+        </div>
+      </div>
+    </div>
+    <button id="btn-finish" onclick="processPayment()" disabled class="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+      ✅ Selesaikan Transaksi
+    </button>
+    <button onclick="closePaymentModal()" class="w-full mt-2 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:bg-gray-900">Batal</button>
+  </div>
+</div>
+
+<!-- ===== SUCCESS MODAL ===== -->
+<div id="success-modal" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center">
+    <div class="text-4xl mb-3">✅</div>
+    <h3 class="text-lg font-bold mb-1">Transaksi Berhasil</h3>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-2" id="success-trx-no">#TRX-000</p>
+    <p class="text-2xl font-bold font-mono text-primary mb-4" id="success-total">Rp 0</p>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Pembayaran: <span id="success-method">TUNAI</span></p>
+    <!-- Customer WA -->
+    <input type="text" id="customer-wa" placeholder="No WA pelanggan (08xxx)..." class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm mb-3 font-mono">
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <button onclick="printStruk()" class="py-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600">🖨 Cetak Struk</button>
+      <button onclick="kirimDigital()" class="py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">📱 Kirim WA</button>
+    </div>
+    <button onclick="closeSuccessModal()" class="w-full py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700">💰 Transaksi Baru</button>
+  </div>
+</div>
+
+<!-- ===== PRINT AREA (hidden, for @media print) ===== -->
+<div id="print-area" class="hidden" style="font-family:'Courier New',monospace;"></div>
+
+<!-- Toast -->
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg opacity-0 transition-opacity"></div>
+
+<!-- Init -->
+<script>
+(function(){
+  // Load profile from localStorage
+  const n = localStorage.getItem('apotek_pos_profile_name') || 'ApotekPOS';
+  const el = document.getElementById('kasir-header-name');
+  if (el) el.textContent = '💊 ' + n;
+  // Restore shift data
+  const shiftStored = localStorage.getItem('apotek_pos_shift_active');
+  const shiftData = localStorage.getItem('apotek_pos_shift_data');
+  if (shiftStored === 'true' && shiftData) {
+    try {
+      var sd = JSON.parse(shiftData);
+      shiftActive = true;
+      shiftModalAwal = sd.modalAwal || 500000;
+      shiftStartTime = new Date(sd.startTime || Date.now());
+      shiftKasAkhir = shiftModalAwal;
+    } catch(e) { shiftActive = false; }
+  } else if (shiftStored === 'false' || !shiftData) {
+    shiftActive = false;
+    var badge = document.getElementById('shift-badge');
+    if (badge) {
+      badge.innerHTML = '<span class="w-2 h-2 bg-gray-400 rounded-full"></span> Shift Ditutup';
+      badge.className = 'flex items-center gap-1.5 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full text-xs font-medium';
+    }
+  }
+  renderProducts();
+  updatePaymentButton();
+  // Update payment total when cart changes
+  setInterval(() => {
+    const subtotal = cart.reduce((sum,c) => sum + c.price * c.qty, 0);
+    const el = document.getElementById('payment-total');
+    if (el) el.textContent = 'Rp ' + subtotal.toLocaleString('id');
+  }, 500);
+})();
+</script>
+
+<div style="text-align:center;padding:8px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;margin-top:auto">Powered by <b>Digicraft</b></div></body>
+</html>

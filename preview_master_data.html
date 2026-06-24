@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview — Master Data | Apotek POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- FIX: Load Supabase SDK + bridge for Supabase integration -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-bridge.js"></script>
+<script src="js/product-schema.js"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { mono: ['Fira Code','Consolas','monospace'], sans: ['Fira Sans','Inter','system-ui','sans-serif'] },
+      colors: { 
+        primary:'#15803D', secondary:'#22C55E', accent:'#0369A1', 
+        surface:'#F0FDF4', 'text-primary':'#14532D', 'text-secondary':'#166534',
+        'dashboard-gray': '#F4F5F7', 'orange-accent': '#FF5A1F'
+      }
+    }
+  }
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  .row-hover:hover { background: #f0fdf4; }
+  .tab-active { border-bottom: 2px solid #15803D; color: #15803D; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .fade-in { animation: fadeIn 150ms ease; }
+</style>
+
+<script>
+  // Dark Mode Logic
+  function toggleDarkMode() {
+    document.documentElement.classList.toggle('dark');
+    const isDark = document.documentElement.classList.contains('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeIcon(isDark);
+  }
+  
+  function updateThemeIcon(isDark) {
+    const sunIcon = document.getElementById('sun-icon');
+    const moonIcon = document.getElementById('moon-icon');
+    if(sunIcon && moonIcon) {
+        if(isDark) {
+            sunIcon.classList.remove('scale-100', 'opacity-100');
+            sunIcon.classList.add('scale-0', 'opacity-0');
+            moonIcon.classList.remove('scale-0', 'opacity-0');
+            moonIcon.classList.add('scale-100', 'opacity-100');
+        } else {
+            moonIcon.classList.remove('scale-100', 'opacity-100');
+            moonIcon.classList.add('scale-0', 'opacity-0');
+            sunIcon.classList.remove('scale-0', 'opacity-0');
+            sunIcon.classList.add('scale-100', 'opacity-100');
+        }
+    }
+  }
+
+  // Init theme
+  if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  window.addEventListener('DOMContentLoaded', () => {
+    updateThemeIcon(document.documentElement.classList.contains('dark'));
+  });
+</script>
+
+</head>
+<body class="bg-dashboard-gray dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors">
+
+<!-- ===== TOP BAR ===== -->
+<header class="sticky top-0 z-40 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 card-shadow">
+  <div class="flex items-center gap-3">
+    <span class="text-lg font-bold text-primary font-mono">💊 ApotekPOS</span>
+
+    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Master Data</span>
+  </div>
+  <div class="flex items-center gap-3">
+    
+    <!-- Theme Toggle -->
+    <button onclick="toggleDarkMode()" class="group relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 bg-transparent text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+      <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 scale-0 opacity-0 transition-all absolute text-gray-400">
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+      </svg>
+      <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 scale-100 opacity-100 transition-all absolute text-gray-500 dark:text-gray-400">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2"></path>
+        <path d="M12 20v2"></path>
+        <path d="m4.93 4.93 1.41 1.41"></path>
+        <path d="m17.66 17.66 1.41 1.41"></path>
+        <path d="M2 12h2"></path>
+        <path d="M20 12h2"></path>
+        <path d="m6.34 17.66-1.41 1.41"></path>
+        <path d="m19.07 4.93-1.41 1.41"></path>
+      </svg>
+    </button>
+
+    <span class="text-xs text-gray-500 dark:text-gray-400">Outlet Pusat · Admin (Apoteker)</span>
+    <div class="w-8 h-8 rounded-full bg-orange-accent dark:bg-orange-600 flex items-center justify-center text-white text-sm font-bold">A</div>
+  </div>
+</header>
+
+<!-- ===== MAIN LAYOUT ===== -->
+<div class="flex h-[calc(100vh-56px)]">
+
+  <!-- SIDEBAR -->
+  <aside id="global-sidebar" class="w-56 transition-all duration-300 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col py-2 overflow-y-auto">
+    <div class="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Master Data</div>
+    <button onclick="switchTab('products')" id="nav-products" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-900 dark:text-gray-100 bg-green-50 transition cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m6 4.125 2.25 2.25m0 0 2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/></svg>
+      Produk
+    </button>
+    <button onclick="switchTab('categories')" id="nav-categories" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
+      Kategori
+    </button>
+    <button onclick="switchTab('units')" id="nav-units" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.375 6.75h17.25M3.375 12h17.25m-17.25 5.25h17.25"/></svg>
+      Satuan
+    </button>
+    <button onclick="switchTab('suppliers')" id="nav-suppliers" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.25 2.25 0 0 0-1.913-1.108h-6.611a2.25 2.25 0 0 0-1.913 1.108 17.902 17.902 0 0 0-3.213 9.193c-.04.62.469 1.124 1.09 1.124H8.25"/></svg>
+      Supplier
+    </button>
+    <button onclick="switchTab('import')" id="nav-import" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+      Import
+    </button>
+    <hr class="my-3 mx-3 border-gray-100">
+    <a href="preview_kasir.html" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"/></svg>
+      
+    </a>
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="flex-1 overflow-y-auto p-6">
+
+    <!-- ========== TAB: PRODUK ========== -->
+    <div id="tab-products" class="fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-xl font-bold">Master Produk</h1>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Kelola data obat, alat kesehatan, dan produk lainnya</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="openImport()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+            Import Excel
+          </button>
+          <button onclick="openProductForm()" class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            Tambah Produk
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-4 gap-3 mb-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <p class="text-xs text-gray-500 dark:text-gray-400">Total Produk</p>
+          <p class="text-2xl font-bold font-mono text-gray-900 dark:text-gray-100" id="kpi-total">15</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <p class="text-xs text-gray-500 dark:text-gray-400">Produk Aktif</p>
+          <p class="text-2xl font-bold font-mono text-green-700" id="kpi-active">14</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <p class="text-xs text-gray-500 dark:text-gray-400">Stok Menipis</p>
+          <p class="text-2xl font-bold font-mono text-amber-600" id="kpi-low">3</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <p class="text-xs text-gray-500 dark:text-gray-400">Habis / Nonaktif</p>
+          <p class="text-2xl font-bold font-mono text-red-600" id="kpi-out">1</p>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 mb-3">
+        <div class="relative flex-1">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
+          <input type="text" id="product-search" placeholder="Cari produk... (nama, generik, kode, barcode)" class="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" oninput="renderProductTable()">
+        </div>
+        <select id="golongan-filter" onchange="renderProductTable()" class="py-2 px-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+          <option value="">Semua Golongan</option>
+          <option value="bebas">Obat Bebas</option>
+          <option value="bebas_terbatas">Obat Bebas Terbatas</option>
+          <option value="keras">Obat Keras</option>
+          <option value="narkotika">Narkotika</option>
+          <option value="psikotropika">Psikotropika</option>
+          <option value="prekursor">Prekursor</option>
+          <option value="vitamin">Vitamin</option>
+        </select>
+        <select id="status-filter" onchange="renderProductTable()" class="py-2 px-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+          <option value="all">Semua Status</option>
+          <option value="active">Aktif</option>
+          <option value="inactive">Nonaktif</option>
+        </select>
+        <span class="text-sm text-gray-500 dark:text-gray-400" id="row-count">15 produk</span>
+      </div>
+
+      <!-- Product table -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left">
+                <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:text-gray-100 w-32">Kode ↕</th>
+                <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:text-gray-100">Nama Dagang</th>
+                <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:text-gray-100">Nama Generik</th>
+                <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 w-28">Golongan</th>
+                <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Kategori</th>
+                <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Satuan Dasar</th>
+                <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right w-28">Harga Jual</th>
+                <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center w-20">Stok</th>
+                <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center w-20">Status</th>
+              </tr>
+            </thead>
+            <tbody id="product-table-body"></tbody>
+          </table>
+        </div>
+        <!-- Pagination -->
+        <div class="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 bg-gray-50 dark:bg-gray-900/50 text-sm">
+          <span class="text-gray-500 dark:text-gray-400">Menampilkan 1-15 dari 15</span>
+          <div class="flex gap-1">
+            <button class="w-8 h-8 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-400 cursor-default">«</button>
+            <button class="w-8 h-8 rounded bg-orange-accent dark:bg-orange-600 text-white font-medium">1</button>
+            <button class="w-8 h-8 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-400 cursor-default">»</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== TAB: KATEGORI ========== -->
+    <div id="tab-categories" class="fade-in hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Kategori Produk</h1><p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Hierarki kategori untuk pengelompokan produk</p></div>
+        <button onclick="showToast('📂 Form tambah kategori — gunakan module Settings')" class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Tambah Kategori
+        </button>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <h3 class="font-semibold mb-3">Daftar Kategori</h3>
+          <div class="space-y-1">
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 border border-green-200 cursor-pointer text-sm">
+              <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
+              <span>Obat <span class="text-xs text-gray-500 dark:text-gray-400">(20 produk)</span></span>
+            </div>
+          </div>
+          <div class="space-y-1 ml-8">
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 dark:bg-gray-900 cursor-pointer text-sm">
+              <svg class="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
+              <span>Obat Bebas <span class="text-xs text-gray-500 dark:text-gray-400">(12)</span></span>
+            </div>
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 dark:bg-gray-900 cursor-pointer text-sm">
+              <svg class="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
+              <span>Obat Keras <span class="text-xs text-gray-500 dark:text-gray-400">(8)</span></span>
+            </div>
+          </div>
+          <div class="space-y-1 mt-1">
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 dark:bg-gray-900 cursor-pointer text-sm">
+              <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
+              <span>Vitamin & Suplemen <span class="text-xs text-gray-500 dark:text-gray-400">(5)</span></span>
+            </div>
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 dark:bg-gray-900 cursor-pointer text-sm">
+              <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
+              <span>Alat Kesehatan <span class="text-xs text-gray-500 dark:text-gray-400">(9)</span></span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center justify-center text-gray-400">
+          <div class="text-center">
+            <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+            <p class="text-sm">Pilih kategori untuk edit</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== TAB: SATUAN ========== -->
+    <div id="tab-units" class="fade-in hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Master Satuan</h1><p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Konfigurasi satuan & konversi antar satuan</p></div>
+        <button onclick="openUnitForm(null)" class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Tambah Satuan
+        </button>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left">
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Nama Satuan</th>
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Singkatan</th>
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Produk</th>
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Contoh Konversi</th>
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-medium">Tablet</td><td class="px-4 py-3 font-mono text-xs">tab</td><td class="px-4 py-3 text-center">45</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">1 strip = 10 tablet</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-medium">Strip</td><td class="px-4 py-3 font-mono text-xs">str</td><td class="px-4 py-3 text-center">32</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">10 tablet</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-medium">Box</td><td class="px-4 py-3 font-mono text-xs">box</td><td class="px-4 py-3 text-center">28</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">100 tablet / 10 strip</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-medium">Botol</td><td class="px-4 py-3 font-mono text-xs">btl</td><td class="px-4 py-3 text-center">15</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">1 botol = 60 ml</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-medium">Kapsul</td><td class="px-4 py-3 font-mono text-xs">kaps</td><td class="px-4 py-3 text-center">22</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">1 strip = 10 kapsul</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-medium">Sachet</td><td class="px-4 py-3 font-mono text-xs">sch</td><td class="px-4 py-3 text-center">14</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">-</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-medium">Tube</td><td class="px-4 py-3 font-mono text-xs">tube</td><td class="px-4 py-3 text-center">6</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">-</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-medium">Pcs</td><td class="px-4 py-3 font-mono text-xs">pcs</td><td class="px-4 py-3 text-center">30</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">-</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== TAB: SUPPLIER ========== -->
+    <div id="tab-suppliers" class="fade-in hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Supplier / PBF</h1><p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Kelola data pemasok & Pedagang Besar Farmasi</p></div>
+        <button onclick="openSupplierForm(null)" class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Tambah Supplier
+        </button>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left">
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Kode</th>
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Nama</th>
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 w-24">Tipe</th>
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Kota</th>
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Telepon</th>
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center w-20">Status</th>
+              <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right w-16">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">SUP-001</td><td class="px-4 py-3 font-medium">PT Kimia Farma</td><td class="px-4 py-3"><span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">PBF</span></td><td class="px-4 py-3">Jakarta</td><td class="px-4 py-3 text-xs">021-123456</td><td class="px-4 py-3 text-center"><span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Aktif</span></td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">SUP-002</td><td class="px-4 py-3 font-medium">PT Anugrah Argon Medica</td><td class="px-4 py-3"><span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">PBF</span></td><td class="px-4 py-3">Bandung</td><td class="px-4 py-3 text-xs">022-789012</td><td class="px-4 py-3 text-center"><span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Aktif</span></td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">SUP-003</td><td class="px-4 py-3 font-medium">PT Indofarma</td><td class="px-4 py-3"><span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">PBF</span></td><td class="px-4 py-3">Surabaya</td><td class="px-4 py-3 text-xs">031-456789</td><td class="px-4 py-3 text-center"><span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Aktif</span></td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+            <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">SUP-004</td><td class="px-4 py-3 font-medium">Toko Alkes Sehat</td><td class="px-4 py-3"><span class="text-xs bg-gray-100 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full font-medium">Umum</span></td><td class="px-4 py-3">Semarang</td><td class="px-4 py-3 text-xs">024-345678</td><td class="px-4 py-3 text-center"><span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Aktif</span></td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== TAB: IMPORT ========== -->
+    <div id="tab-import" class="fade-in hidden">
+      <div class="mb-4"><h1 class="text-xl font-bold">Import Produk</h1><p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Upload data produk massal dari file Excel/CSV</p></div>
+      <div class="max-w-2xl">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 text-lg font-bold text-primary">1</div>
+            <div>
+              <h3 class="font-semibold mb-1">Download Template</h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Gunakan template Excel yang sudah disediakan untuk memastikan format data sesuai.</p>
+              <button class="px-4 py-2 border border-orange-accent dark:border-orange-600 text-primary rounded-lg text-sm font-medium hover:bg-green-50 transition cursor-pointer">📥 Download Template.xlsx</button>
+            </div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 text-lg font-bold text-primary">2</div>
+            <div>
+              <h3 class="font-semibold mb-1">Upload File</h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Upload file Excel/CSV yang sudah diisi data produk.</p>
+              <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-orange-accent dark:border-orange-600 transition cursor-pointer">
+                <svg class="w-10 h-10 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+                <p class="text-sm font-medium">Drag & drop file di sini</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">atau <span class="text-accent">pilih file</span></p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Format: .xlsx, .xls, .csv (max 5MB)</p>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg font-bold text-gray-400">3</div>
+            <div>
+              <h3 class="font-semibold mb-1 text-gray-400">Preview & Import</h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400 text-gray-400">Hasil validasi akan ditampilkan sebelum data diimpor ke sistem.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===== PRODUCT FORM SLIDE-OVER ===== -->
+<div id="form-overlay" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onclick="closeProductForm()"></div>
+<div id="form-slideover" class="hidden fixed right-0 top-0 z-50 h-full w-[600px] max-w-[95vw] bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+  <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+    <h3 class="text-lg font-bold" id="form-title">Tambah Produk Baru</h3>
+    <button onclick="closeProductForm()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-5 space-y-5">
+    <!-- Informasi Dasar -->
+    <fieldset class="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+      <legend class="text-sm font-semibold px-2">Informasi Dasar</legend>
+      <div class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium mb-1">Kode Produk</label>
+            <input id="form-kode" type="text" value="PROD-000042" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">Produsen</label>
+            <input id="form-produsen" type="text" placeholder="Nama pabrik..." class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1">Nama Dagang <span class="text-red-500">*</span></label>
+          <input id="form-nama-dagang" type="text" placeholder="Nama brand/dagang..." class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1">Nama Generik</label>
+          <input id="form-nama-generik" type="text" placeholder="Nama generik/zat aktif..." class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none">
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- Klasifikasi -->
+    <fieldset class="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+      <legend class="text-sm font-semibold px-2">Klasifikasi</legend>
+      <div class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium mb-1">Kategori</label>
+            <select id="form-kategori" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+              <option>Obat Bebas</option><option>Obat Keras</option><option>Vitamin</option><option>Alkes</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">Golongan</label>
+            <select id="form-golongan" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer" onchange="updateGolonganBadge()">
+              <option value="bebas">Obat Bebas</option><option value="bebas_terbatas">Obat Bebas Terbatas</option><option value="keras">Obat Keras</option><option value="narkotika">Narkotika</option><option value="psikotropika">Psikotropika</option><option value="prekursor">Prekursor</option><option value="vitamin">Vitamin</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-500 dark:text-gray-400">Golongan:</span>
+          <span id="golongan-badge-display" class="text-xs px-2 py-0.5 rounded-full font-bold text-white bg-green-600">Obat Bebas</span>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-orange-accent">
+          <span class="text-sm">Barang Konsinyasi (titipan supplier)</span>
+        </label>
+      </div>
+    </fieldset>
+
+    <!-- Harga & Stok -->
+    <fieldset class="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+      <legend class="text-sm font-semibold px-2">Harga & Stok</legend>
+      <div class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-medium mb-1">Harga Beli</label><div class="relative"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-xs">Rp</span><input id="form-harga-beli" type="number" class="w-full pl-10 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-accent outline-none" placeholder="0"></div></div>
+          <div><label class="block text-xs font-medium mb-1">Harga Jual <span class="text-red-500">*</span></label><div class="relative"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-xs">Rp</span><input id="form-harga-jual" type="number" class="w-full pl-10 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-accent outline-none" placeholder="0"></div></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-medium mb-1">HET <span class="text-gray-500 dark:text-gray-400">(opsional)</span></label><div class="relative"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-xs">Rp</span><input type="number" class="w-full pl-10 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-accent outline-none" placeholder="0"></div></div>
+          <div><label class="block text-xs font-medium mb-1">Stok Minimum</label><input id="form-stok-minimum" type="number" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-accent outline-none" value="10"></div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1">Rata-rata Penjualan / Hari <span class="text-gray-500 dark:text-gray-400">(opsional — untuk kalkulasi defecta)</span></label>
+          <input id="form-rata-penjualan" type="number" step="0.1" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Contoh: 3.5">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Input manual berdasarkan data historis. Dipakai untuk hitung estimasi stok habis di modul Defecta.</p>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- Satuan & Konversi -->
+    <fieldset class="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+      <legend class="text-sm font-semibold px-2">Satuan & Konversi</legend>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium mb-1">Satuan Dasar</label>
+          <select id="form-satuan" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+            <option>Tablet</option><option>Strip</option><option>Botol</option><option>Kapsul</option><option>Pcs</option><option>Tube</option>
+          </select>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Satuan dasar digunakan untuk pencatatan stok.</p>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium">Satuan Tambahan</span>
+            <button class="text-xs text-accent hover:underline cursor-pointer">+ Tambah</button>
+          </div>
+          <table class="w-full text-xs border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <thead><tr class="bg-gray-50 dark:bg-gray-900"><th class="px-3 py-2 text-left font-medium">Satuan</th><th class="px-3 py-2 text-left font-medium">Barcode</th><th class="px-3 py-2 text-center font-medium">Konversi</th><th class="px-3 py-2 text-center font-medium">Default Jual</th></tr></thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr><td class="px-3 py-2">Strip</td><td class="px-3 py-2 font-mono">8992733991234</td><td class="px-3 py-2 text-center font-mono">10 tab</td><td class="px-3 py-2 text-center"><input type="radio" name="def-jual" checked class="text-primary"></td></tr>
+              <tr><td class="px-3 py-2">Box</td><td class="px-3 py-2 font-mono">—</td><td class="px-3 py-2 text-center font-mono">100 tab</td><td class="px-3 py-2 text-center"><input type="radio" name="def-jual" class="text-primary"></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- Supplier & Lead Time -->
+    <fieldset class="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+      <legend class="text-sm font-semibold px-2">Supplier & Lead Time</legend>
+      <div class="space-y-3">
+        <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">Hubungkan produk ke supplier + tentukan lead time pengiriman (untuk kalkulasi urgency di Defecta).</div>
+        <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <table class="w-full text-xs">
+            <thead><tr class="bg-gray-50 dark:bg-gray-900"><th class="px-3 py-2 text-left font-medium">Supplier</th><th class="px-3 py-2 text-center font-medium">Lead Time (hari)</th><th class="px-3 py-2 text-center font-medium">Supplier Utama</th><th class="px-3 py-2 w-8"></th></tr></thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr>
+                <td class="px-3 py-2"><select class="w-full bg-transparent text-xs cursor-pointer"><option>Kimia Farma</option><option>Anugrah Argon</option><option>Indofarma</option></select></td>
+                <td class="px-3 py-2 text-center"><input type="number" value="3" class="w-14 text-center bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"></td>
+                <td class="px-3 py-2 text-center"><input type="radio" name="sup-utama" checked class="text-primary"></td>
+                <td class="px-3 py-2"><button class="text-gray-400 hover:text-red-500 cursor-pointer">✕</button></td>
+              </tr>
+              <tr>
+                <td class="px-3 py-2"><select class="w-full bg-transparent text-xs cursor-pointer"><option selected>Indofarma</option><option>Kimia Farma</option></select></td>
+                <td class="px-3 py-2 text-center"><input type="number" value="5" class="w-14 text-center bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono"></td>
+                <td class="px-3 py-2 text-center"><input type="radio" name="sup-utama" class="text-primary"></td>
+                <td class="px-3 py-2"><button class="text-gray-400 hover:text-red-500 cursor-pointer">✕</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button class="text-xs text-accent hover:underline cursor-pointer">+ Tambah Supplier</button>
+      </div>
+    </fieldset>
+
+    <!-- Barcode -->
+    <fieldset class="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+      <legend class="text-sm font-semibold px-2">Barcode</legend>
+      <div class="space-y-2">
+        <div class="flex items-center gap-2">
+          <div class="flex-1 flex items-center gap-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
+            <input type="text" value="8992733991234" class="flex-1 bg-transparent text-sm font-mono outline-none" placeholder="Kode barcode...">
+            <select class="bg-transparent text-xs cursor-pointer"><option>Pabrik</option><option>Internal</option></select>
+          </div>
+          <button class="text-gray-400 hover:text-red-500 cursor-pointer p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg></button>
+        </div>
+        <button class="text-xs text-accent hover:underline cursor-pointer">+ Tambah Barcode</button>
+      </div>
+    </fieldset>
+
+    <!-- Upload Gambar -->
+    <fieldset class="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+      <legend class="text-sm font-semibold px-2">Gambar Produk</legend>
+      <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-orange-accent dark:border-orange-600 transition cursor-pointer">
+        <div class="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center mx-auto mb-2">
+          <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"/></svg>
+        </div>
+        <p class="text-sm font-medium">Klik atau drag untuk upload</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Max 1MB, 400×400px</p>
+      </div>
+    </fieldset>
+  </div>
+  <div class="p-4 border-t border-gray-100 flex gap-3">
+    <button id="btn-delete" onclick="deleteProductForm()" class="hidden py-2.5 px-4 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition cursor-pointer">Nonaktifkan</button>
+    <button onclick="closeProductForm()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">Batal</button>
+    <button onclick="saveProductForm()" class="flex-1 py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">💾 Simpan</button>
+  </div>
+</div>
+
+<!-- ===== SUPPLIER FORM SLIDE-OVER ===== -->
+<div id="supplier-form-overlay" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onclick="closeSupplierForm()"></div>
+<div id="supplier-form-slideover" class="hidden fixed right-0 top-0 z-50 h-full w-[520px] max-w-[95vw] bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+  <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+    <h3 class="text-lg font-bold" id="supplier-form-title">Tambah Supplier</h3>
+    <button onclick="closeSupplierForm()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition cursor-pointer">&times;</button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-5 space-y-4">
+    <div><label class="block text-xs font-medium mb-1">Kode</label><input type="text" id="supplier-kode" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Auto-generated"></div>
+    <div><label class="block text-xs font-medium mb-1">Nama Supplier <span class="text-red-500">*</span></label><input type="text" id="supplier-nama" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Nama supplier / PBF"></div>
+    <div><label class="block text-xs font-medium mb-1">Tipe</label><select id="supplier-tipe" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer"><option value="PBF">PBF (Pedagang Besar Farmasi)</option><option value="Umum">Umum</option></select></div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="block text-xs font-medium mb-1">Kota</label><input type="text" id="supplier-kota" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Kota"></div>
+      <div><label class="block text-xs font-medium mb-1">Telepon</label><input type="text" id="supplier-telepon" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Nomor telepon"></div>
+    </div>
+    <div><label class="block text-xs font-medium mb-1">Status</label><select id="supplier-status" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer"><option value="Aktif">Aktif</option><option value="Nonaktif">Nonaktif</option></select></div>
+  </div>
+  <div class="p-4 border-t border-gray-100 flex gap-3">
+    <button onclick="closeSupplierForm()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">Batal</button>
+    <button onclick="saveSupplier()" class="flex-1 py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">💾 Simpan</button>
+  </div>
+</div>
+
+<!-- ===== SATUAN FORM SLIDE-OVER ===== -->
+<div id="unit-form-overlay" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onclick="closeUnitForm()"></div>
+<div id="unit-form-slideover" class="hidden fixed right-0 top-0 z-50 h-full w-[480px] max-w-[95vw] bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+  <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+    <h3 class="text-lg font-bold" id="unit-form-title">Tambah Satuan</h3>
+    <button onclick="closeUnitForm()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition cursor-pointer">&times;</button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-5 space-y-4">
+    <div><label class="block text-xs font-medium mb-1">Nama Satuan <span class="text-red-500">*</span></label><input type="text" id="unit-nama" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Contoh: Tablet"></div>
+    <div><label class="block text-xs font-medium mb-1">Singkatan</label><input type="text" id="unit-singkatan" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Contoh: tab"></div>
+    <fieldset class="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+      <legend class="text-sm font-semibold px-2">Konversi Satuan</legend>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Tentukan konversi satuan ini ke satuan dasar. Contoh: 1 Strip = 10 Tablet, 1 Box = 100 Tablet.</p>
+      <div class="flex items-center gap-2 mb-3">
+        <input type="checkbox" id="unit-is-dasar" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-orange-accent" onchange="toggleUnitKonversi()">
+        <label for="unit-is-dasar" class="text-sm">Satuan Dasar (tidak perlu konversi)</label>
+      </div>
+      <div id="unit-konversi-group">
+        <div class="flex items-center gap-3">
+          <div class="flex-1">
+            <label class="block text-[10px] font-medium mb-0.5">1 <span id="unit-konversi-label">Satuan</span> =</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="unit-faktor" min="1" class="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Faktor">
+              <select id="unit-konversi-ke" class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer"></select>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2" id="unit-konversi-preview"></p>
+      </div>
+    </fieldset>
+  </div>
+  <div class="p-4 border-t border-gray-100 flex gap-3">
+    <button onclick="closeUnitForm()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">Batal</button>
+    <button onclick="saveUnit()" class="flex-1 py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">💾 Simpan</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-text-primary text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"></div>
+
+<script>
+const golonganColors = {
+  bebas: { bg:'#16A34A', name:'Obat Bebas' },
+  bebas_terbatas: { bg:'#2563EB', name:'Obat Bebas Terbatas' },
+  keras: { bg:'#DC2626', name:'Obat Keras' },
+  narkotika: { bg:'#7C3AED', name:'Narkotika' },
+  psikotropika: { bg:'#EA580C', name:'Psikotropika' },
+  prekursor: { bg:'#CA8A04', name:'Prekursor' },
+  vitamin: { bg:'#0891B2', name:'Vitamin / Suplemen' },
+};
+
+const defaultProducts = [
+  { kode:'PROD-000001', nama_dagang:'Paracetamol 500mg', nama_generik:'Paracetamol', golongan:'bebas', kategori:'Obat Bebas', satuan:'Tablet', harga_jual:5000, stok:45, is_aktif:true },
+  { kode:'PROD-000002', nama_dagang:'Amoxicillin 500mg', nama_generik:'Amoxicillin', golongan:'keras', kategori:'Obat Keras', satuan:'Kapsul', harga_jual:12000, stok:15, is_aktif:true },
+  { kode:'PROD-000003', nama_dagang:'OBH Combi', nama_generik:'OBH', golongan:'bebas', kategori:'Obat Bebas', satuan:'Botol', harga_jual:18000, stok:30, is_aktif:true },
+  { kode:'PROD-000004', nama_dagang:'Betadine Sol. 60ml', nama_generik:'Povidone Iodine', golongan:'bebas', kategori:'Obat Bebas', satuan:'Botol', harga_jual:22000, stok:8, is_aktif:true },
+  { kode:'PROD-000005', nama_dagang:'Vitamin C 500mg', nama_generik:'Ascorbic Acid', golongan:'vitamin', kategori:'Vitamin', satuan:'Tablet', harga_jual:8000, stok:60, is_aktif:true },
+  { kode:'PROD-000006', nama_dagang:'Cetirizine 10mg', nama_generik:'Cetirizine', golongan:'bebas_terbatas', kategori:'Obat Bebas', satuan:'Tablet', harga_jual:3500, stok:2, is_aktif:true },
+  { kode:'PROD-000007', nama_dagang:'Diazepam 5mg', nama_generik:'Diazepam', golongan:'psikotropika', kategori:'Obat Keras', satuan:'Tablet', harga_jual:15000, stok:5, is_aktif:true },
+  { kode:'PROD-000008', nama_dagang:'Masker 3-Ply', nama_generik:'-', golongan:'bebas', kategori:'Alkes', satuan:'Pcs', harga_jual:2500, stok:100, is_aktif:true },
+  { kode:'PROD-000009', nama_dagang:'Omeprazole 20mg', nama_generik:'Omeprazole', golongan:'keras', kategori:'Obat Keras', satuan:'Kapsul', harga_jual:9500, stok:0, is_aktif:true },
+  { kode:'PROD-000010', nama_dagang:'Antimo Tablet', nama_generik:'Dimenhydrinate', golongan:'bebas', kategori:'Obat Bebas', satuan:'Tablet', harga_jual:4000, stok:35, is_aktif:true },
+  { kode:'PROD-000011', nama_dagang:'Vitamin B Complex', nama_generik:'Vitamin B', golongan:'vitamin', kategori:'Vitamin', satuan:'Tablet', harga_jual:12000, stok:18, is_aktif:true },
+  { kode:'PROD-000012', nama_dagang:'Codein 10mg', nama_generik:'Codein', golongan:'narkotika', kategori:'Obat Keras', satuan:'Tablet', harga_jual:25000, stok:3, is_aktif:true },
+  { kode:'PROD-000013', nama_dagang:'Hansaplast', nama_generik:'-', golongan:'bebas', kategori:'Alkes', satuan:'Pcs', harga_jual:5000, stok:40, is_aktif:true },
+  { kode:'PROD-000014', nama_dagang:'Procold Flu', nama_generik:'Paracetamol+', golongan:'bebas_terbatas', kategori:'Obat Bebas', satuan:'Tablet', harga_jual:3500, stok:50, is_aktif:true },
+  { kode:'PROD-000015', nama_dagang:'Antasida Chew', nama_generik:'Antasida', golongan:'bebas', kategori:'Obat Bebas', satuan:'Tablet', harga_jual:6000, stok:0, is_aktif:false },
+];
+
+function loadProducts() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('apotek_products_master') || '[]');
+    if (Array.isArray(saved) && saved.length > 0) return saved;
+  } catch(e) {}
+  const json = JSON.stringify(defaultProducts);
+  localStorage.setItem('apotek_products_master', json);
+  localStorage.setItem('products_master', json);
+  return defaultProducts.slice();
+}
+
+function saveProducts(data) {
+  const json = JSON.stringify(data);
+  localStorage.setItem('apotek_products_master', json);
+  localStorage.setItem('products_master', json);
+}
+
+let products = loadProducts();
+
+function renderProductTable() {
+  const search = (document.getElementById('product-search').value || '').toLowerCase();
+  const golonganFilter = document.getElementById('golongan-filter').value;
+  const statusFilter = document.getElementById('status-filter').value;
+
+  let filtered = products;
+  if (search) filtered = filtered.filter(p =>
+    p.nama_dagang.toLowerCase().includes(search) ||
+    p.nama_generik.toLowerCase().includes(search) ||
+    p.kode.toLowerCase().includes(search) ||
+    String(p.harga_jual).includes(search)
+  );
+  if (golonganFilter) filtered = filtered.filter(p => p.golongan === golonganFilter);
+  if (statusFilter === 'active') filtered = filtered.filter(p => p.is_aktif);
+  if (statusFilter === 'inactive') filtered = filtered.filter(p => !p.is_aktif);
+
+  document.getElementById('row-count').textContent = filtered.length + ' produk';
+  document.getElementById('kpi-total').textContent = products.length;
+  document.getElementById('kpi-active').textContent = products.filter(p => p.is_aktif).length;
+  document.getElementById('kpi-low').textContent = products.filter(p => p.is_aktif && p.stok > 0 && p.stok <= 10).length;
+  document.getElementById('kpi-out').textContent = products.filter(p => !p.is_aktif || p.stok === 0).length;
+
+  const tbody = document.getElementById('product-table-body');
+  tbody.innerHTML = filtered.map(p => {
+    const gc = golonganColors[p.golongan] || { bg:'#888', name:p.golongan };
+    const stokClass = p.stok === 0 ? 'text-red-600 font-semibold' : p.stok <= 10 ? 'text-amber-600 font-semibold' : 'text-gray-900 dark:text-gray-100 font-mono';
+    const rowClass = !p.is_aktif ? 'bg-gray-50 dark:bg-gray-900 text-gray-400' : 'row-hover cursor-pointer';
+    return `
+      <tr class="${rowClass}" onclick="openProductForm('${p.kode}')">
+        <td class="px-4 py-3 font-mono text-xs ${!p.is_aktif ? '' : 'text-gray-500 dark:text-gray-400'}">${p.kode}</td>
+        <td class="px-4 py-3 font-medium ${!p.is_aktif ? 'line-through' : ''}">${p.nama_dagang}</td>
+        <td class="px-4 py-3 text-gray-500 dark:text-gray-400">${p.nama_generik}</td>
+        <td class="px-4 py-3"><span class="text-[10px] px-2 py-0.5 rounded-full font-bold text-white" style="background:${gc.bg}">${gc.name}</span></td>
+        <td class="px-4 py-3 text-gray-500 dark:text-gray-400">${p.kategori}</td>
+        <td class="px-4 py-3 text-gray-500 dark:text-gray-400">${p.satuan}</td>
+        <td class="px-4 py-3 text-right font-mono font-medium">Rp ${p.harga_jual.toLocaleString('id')}</td>
+        <td class="px-4 py-3 text-center ${stokClass}">${p.stok}</td>
+        <td class="px-4 py-3 text-center">
+          ${p.is_aktif
+            ? '<span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Aktif</span>'
+            : '<span class="text-[10px] bg-gray-100 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full font-medium">Nonaktif</span>'}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-12 text-center text-gray-400"><svg class="w-12 h-12 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg><p class="text-sm font-medium">Produk tidak ditemukan</p><p class="text-xs">Coba filter atau kata kunci lain</p></td></tr>`;
+  }
+}
+
+function deleteProductForm() {
+  const kode = document.getElementById('form-kode').value.trim();
+  if(!kode) return;
+  if(confirm('Yakin ingin menonaktifkan produk ini? Produk tidak akan muncul di Kasir.')) {
+    products = products.map(p => p.kode === kode ? { ...p, is_aktif: false } : p);
+    saveProducts(products);
+    renderProductTable();
+    closeProductForm();
+    showToast('❌ Produk dinonaktifkan');
+  }
+}
+
+function openProductForm(kode) {
+  document.getElementById('form-overlay').classList.remove('hidden');
+  document.getElementById('form-slideover').classList.remove('hidden');
+  document.getElementById('form-title').textContent = kode ? 'Edit: ' + kode : 'Tambah Produk Baru';
+  const formKode = document.getElementById('form-kode');
+  const prod = products.find(p => p.kode === kode);
+  if (prod) {
+    formKode.value = prod.kode || '';
+    formKode.dataset.mode = 'edit';
+    document.getElementById('btn-delete').classList.remove('hidden');
+    document.getElementById('form-nama-dagang').value = prod.nama_dagang || '';
+    document.getElementById('form-nama-generik').value = prod.nama_generik || '';
+    document.getElementById('form-kategori').value = prod.kategori || 'Obat Bebas';
+    document.getElementById('form-golongan').value = prod.golongan || 'bebas';
+    document.getElementById('form-satuan').value = prod.satuan || 'Tablet';
+    document.getElementById('form-harga-jual').value = prod.harga_jual || 0;
+    document.getElementById('form-stok-minimum').value = prod.stok_minimum || 10;
+  } else {
+    formKode.value = 'PROD-' + String(products.length + 1).padStart(6, '0');
+    formKode.dataset.mode = 'create';
+    document.getElementById('btn-delete').classList.add('hidden');
+    document.getElementById('form-nama-dagang').value = '';
+    document.getElementById('form-nama-generik').value = '';
+    document.getElementById('form-kategori').value = 'Obat Bebas';
+    document.getElementById('form-golongan').value = 'bebas';
+    document.getElementById('form-satuan').value = 'Tablet';
+    document.getElementById('form-harga-jual').value = '';
+    document.getElementById('form-stok-minimum').value = 10;
+  }
+  updateGolonganBadge();
+}
+
+function closeProductForm() {
+  document.getElementById('form-overlay').classList.add('hidden');
+  document.getElementById('form-slideover').classList.add('hidden');
+}
+
+function saveProductForm() {
+  const kode = document.getElementById('form-kode').value.trim();
+  const namaDagang = document.getElementById('form-nama-dagang').value.trim();
+  const namaGenerik = document.getElementById('form-nama-generik').value.trim();
+  const kategori = document.getElementById('form-kategori').value;
+  const golongan = document.getElementById('form-golongan').value;
+  const satuan = document.getElementById('form-satuan').value;
+  const hargaJual = parseInt(document.getElementById('form-harga-jual').value || '0', 10);
+  const stokMinimum = parseInt(document.getElementById('form-stok-minimum').value || '10', 10);
+  const mode = document.getElementById('form-kode').dataset.mode || 'create';
+
+  if (!kode || !namaDagang || hargaJual <= 0) {
+    showToast('⚠️ Kode, nama dagang, dan harga jual wajib diisi');
+    return;
+  }
+
+  if (mode === 'edit') {
+    products = products.map(p => p.kode === kode ? { ...p, nama_dagang: namaDagang, nama_generik: namaGenerik, kategori, golongan, satuan, harga_jual: hargaJual, stok_minimum: stokMinimum, is_aktif: p.is_aktif !== false } : p);
+  } else {
+    products.unshift({ kode, nama_dagang: namaDagang, nama_generik: namaGenerik, golongan, kategori, satuan, harga_jual: hargaJual, stok: 0, stok_minimum: stokMinimum, is_aktif: true });
+  }
+
+  saveProducts(products);
+  renderProductTable();
+  closeProductForm();
+  showToast('✅ Produk disimpan dan siap dipakai di kasir');
+}
+
+function openImport() { switchTab('import'); }
+
+function updateGolonganBadge() {
+  const g = document.getElementById('form-golongan').value;
+  const gc = golonganColors[g];
+  const badge = document.getElementById('golongan-badge-display');
+  badge.textContent = gc.name;
+  badge.style.background = gc.bg;
+}
+
+function switchTab(tab) {
+  // Hide all tab contents
+  const allContents = document.querySelectorAll('[id^="tab-"]');
+  allContents.forEach(el => {
+      // Only hide if it's a direct tab content container
+      if(el.tagName === 'DIV' && el.parentElement.tagName !== 'TR') {
+          el.classList.add('hidden');
+      }
+  });
+  
+  // Show target content
+  const target = document.getElementById('tab-' + tab);
+  if(target) target.classList.remove('hidden');
+  
+  // Update Nav visual state
+  const allNavs = document.querySelectorAll('[id^="nav-"]');
+  allNavs.forEach(nav => {
+      // Remove active classes
+      nav.classList.remove('nav-active', 'bg-orange-accent', 'dark:bg-orange-600', 'text-white');
+      // Add inactive classes
+      nav.classList.add('text-gray-500', 'dark:text-gray-400', 'hover:bg-gray-50', 'dark:hover:bg-gray-900');
+  });
+  
+  // Set target nav active
+  const targetNav = document.getElementById('nav-' + tab);
+  if(targetNav) {
+      targetNav.classList.add('nav-active', 'bg-orange-accent', 'dark:bg-orange-600', 'text-white');
+      targetNav.classList.remove('text-gray-500', 'dark:text-gray-400', 'hover:bg-gray-50', 'dark:hover:bg-gray-900');
+  }
+}
+
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 2000);
+}
+
+// ===== SUPPLIER DATA =====
+function getSuppliers() {
+  try { return JSON.parse(localStorage.getItem('apotek_pos_suppliers')) || defaultSuppliers(); } catch(e) { return defaultSuppliers(); }
+}
+function defaultSuppliers() {
+  return [
+    { kode:'SUP-001', nama:'PT Kimia Farma', tipe:'PBF', kota:'Jakarta', telepon:'021-123456', status:'Aktif' },
+    { kode:'SUP-002', nama:'PT Anugrah Argon Medica', tipe:'PBF', kota:'Bandung', telepon:'022-789012', status:'Aktif' },
+    { kode:'SUP-003', nama:'PT Indofarma', tipe:'PBF', kota:'Surabaya', telepon:'031-456789', status:'Aktif' },
+    { kode:'SUP-004', nama:'Toko Alkes Sehat', tipe:'Umum', kota:'Semarang', telepon:'024-345678', status:'Aktif' }
+  ];
+}
+function saveSuppliers(data) {
+  const json = JSON.stringify(data);
+  localStorage.setItem('apotek_pos_suppliers', json);
+  localStorage.setItem('pos_suppliers', json);
+}
+function renderSupplierTable() {
+  const suppliers = getSuppliers();
+  const table = document.querySelector('#tab-suppliers tbody');
+  let counter = suppliers.length;
+  table.innerHTML = suppliers.map(s => {
+    const tipeClass = s.tipe==='PBF'?'bg-blue-100 text-blue-700':'bg-gray-100 text-gray-700 dark:text-gray-300';
+    const statusClass = s.status==='Aktif'?'bg-green-100 text-green-700':'bg-red-100 text-red-700';
+    return `<tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">${s.kode}</td><td class="px-4 py-3 font-medium">${s.nama}</td><td class="px-4 py-3"><span class="text-xs ${tipeClass} px-2 py-0.5 rounded-full font-medium">${s.tipe}</span></td><td class="px-4 py-3">${s.kota||'-'}</td><td class="px-4 py-3 text-xs">${s.telepon||'-'}</td><td class="px-4 py-3 text-center"><span class="text-xs ${statusClass} px-2 py-0.5 rounded-full font-medium">${s.status}</span></td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs" onclick="event.stopPropagation();openSupplierForm('${s.kode}')">Edit</button></td></tr>`;
+  }).join('');
+}
+function openSupplierForm(kode) {
+  document.getElementById('supplier-form-overlay').classList.remove('hidden');
+  document.getElementById('supplier-form-slideover').classList.remove('hidden');
+  const suppliers = getSuppliers();
+  if (kode) {
+    const s = suppliers.find(x => x.kode === kode);
+    if (s) {
+      document.getElementById('supplier-kode').value = s.kode;
+      document.getElementById('supplier-nama').value = s.nama;
+      document.getElementById('supplier-tipe').value = s.tipe;
+      document.getElementById('supplier-kota').value = s.kota||'';
+      document.getElementById('supplier-telepon').value = s.telepon||'';
+      document.getElementById('supplier-status').value = s.status;
+      document.getElementById('supplier-form-title').textContent = 'Edit: '+s.nama;
+    }
+  } else {
+    document.getElementById('supplier-kode').value = '';
+    document.getElementById('supplier-nama').value = '';
+    document.getElementById('supplier-tipe').value = 'PBF';
+    document.getElementById('supplier-kota').value = '';
+    document.getElementById('supplier-telepon').value = '';
+    document.getElementById('supplier-status').value = 'Aktif';
+    document.getElementById('supplier-form-title').textContent = 'Tambah Supplier';
+  }
+}
+function closeSupplierForm() {
+  document.getElementById('supplier-form-overlay').classList.add('hidden');
+  document.getElementById('supplier-form-slideover').classList.add('hidden');
+}
+function saveSupplier() {
+  const kode = document.getElementById('supplier-kode').value.trim();
+  const nama = document.getElementById('supplier-nama').value.trim();
+  if (!nama) { showToast('⚠️ Nama supplier wajib diisi'); return; }
+  let suppliers = getSuppliers();
+  if (kode) {
+    suppliers = suppliers.map(s => s.kode===kode ? {...s, nama, tipe:document.getElementById('supplier-tipe').value, kota:document.getElementById('supplier-kota').value, telepon:document.getElementById('supplier-telepon').value, status:document.getElementById('supplier-status').value} : s);
+  } else {
+    const newKode = 'SUP-' + String(suppliers.length+1).padStart(3,'0');
+    suppliers.push({ kode:newKode, nama, tipe:document.getElementById('supplier-tipe').value, kota:document.getElementById('supplier-kota').value, telepon:document.getElementById('supplier-telepon').value, status:document.getElementById('supplier-status').value });
+  }
+  saveSuppliers(suppliers);
+  renderSupplierTable();
+  closeSupplierForm();
+  showToast('✅ Supplier disimpan');
+}
+
+// ===== SATUAN DATA =====
+function getUnits() {
+  try { return JSON.parse(localStorage.getItem('apotek_pos_units')) || defaultUnits(); } catch(e) { return defaultUnits(); }
+}
+function defaultUnits() {
+  return [
+    { nama:'Tablet', singkatan:'tab', konversi_ke:'Tablet', faktor:1, is_dasar:true },
+    { nama:'Strip', singkatan:'str', konversi_ke:'Tablet', faktor:10, is_dasar:false },
+    { nama:'Box', singkatan:'box', konversi_ke:'Tablet', faktor:100, is_dasar:false },
+    { nama:'Botol', singkatan:'btl', konversi_ke:'Botol', faktor:1, is_dasar:true },
+    { nama:'Kapsul', singkatan:'kaps', konversi_ke:'Kapsul', faktor:1, is_dasar:true },
+    { nama:'Sachet', singkatan:'sch', konversi_ke:'Sachet', faktor:1, is_dasar:true },
+    { nama:'Tube', singkatan:'tube', konversi_ke:'Tube', faktor:1, is_dasar:true },
+    { nama:'Pcs', singkatan:'pcs', konversi_ke:'Pcs', faktor:1, is_dasar:true }
+  ];
+}
+function saveUnits(data) {
+  const json = JSON.stringify(data);
+  localStorage.setItem('apotek_pos_units', json);
+  localStorage.setItem('pos_units', json);
+}
+function renderUnitTable() {
+  const units = getUnits();
+  const container = document.querySelector('#tab-units tbody');
+  container.innerHTML = units.map(u => {
+    const isDasar = u.is_dasar || (u.faktor === 1 && u.konversi_ke === u.nama);
+    const convText = isDasar ? 'Satuan Dasar' : `1 ${u.nama} = ${u.faktor} ${u.konversi_ke||'-'}`;
+    const badgeClass = isDasar ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700';
+    return `
+    <tr class="row-hover cursor-pointer">
+      <td class="px-4 py-3 font-medium">${u.nama}</td>
+      <td class="px-4 py-3 font-mono text-xs">${u.singkatan||'-'}</td>
+      <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">-</td>
+      <td class="px-4 py-3 text-xs"><span class="text-[10px] ${badgeClass} px-2 py-0.5 rounded-full font-medium">${convText}</span></td>
+      <td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs" onclick="event.stopPropagation();openUnitForm('${u.nama}')">Edit</button></td>
+    </tr>`;
+  }).join('');
+}
+function openUnitForm(nama) {
+  document.getElementById('unit-form-overlay').classList.remove('hidden');
+  document.getElementById('unit-form-slideover').classList.remove('hidden');
+  const selKonversiKe = document.getElementById('unit-konversi-ke');
+  selKonversiKe.innerHTML = getUnits().filter(u => u.nama !== nama).map(u => '<option value="'+u.nama+'">'+u.nama+' ('+(u.singkatan||'-')+')</option>').join('');
+  if (nama) {
+    const units = getUnits();
+    const u = units.find(x => x.nama === nama);
+    if (u) {
+      document.getElementById('unit-nama').value = u.nama;
+      document.getElementById('unit-singkatan').value = u.singkatan||'';
+      document.getElementById('unit-form-title').textContent = 'Edit: '+u.nama;
+      document.getElementById('unit-nama').dataset.oldNama = u.nama;
+      document.getElementById('unit-is-dasar').checked = u.is_dasar || false;
+      document.getElementById('unit-faktor').value = u.faktor||1;
+      if (u.konversi_ke) selKonversiKe.value = u.konversi_ke;
+      document.getElementById('unit-konversi-label').textContent = u.nama;
+    }
+  } else {
+    document.getElementById('unit-nama').value = '';
+    document.getElementById('unit-nama').dataset.oldNama = '';
+    document.getElementById('unit-singkatan').value = '';
+    document.getElementById('unit-is-dasar').checked = true;
+    document.getElementById('unit-faktor').value = '1';
+    document.getElementById('unit-konversi-label').textContent = 'Satuan';
+    document.getElementById('unit-form-title').textContent = 'Tambah Satuan';
+  }
+  toggleUnitKonversi();
+}
+function toggleUnitKonversi() {
+  const isDasar = document.getElementById('unit-is-dasar').checked;
+  const grp = document.getElementById('unit-konversi-group');
+  grp.style.opacity = isDasar ? '0.4' : '1';
+  grp.style.pointerEvents = isDasar ? 'none' : 'auto';
+  document.getElementById('unit-faktor').disabled = isDasar;
+  document.getElementById('unit-konversi-ke').disabled = isDasar;
+  updateKonversiPreview();
+  const namaEl = document.getElementById('unit-nama');
+  document.getElementById('unit-konversi-label').textContent = namaEl.value.trim() || 'Satuan';
+}
+document.getElementById('unit-faktor').addEventListener('input', updateKonversiPreview);
+document.getElementById('unit-konversi-ke').addEventListener('change', updateKonversiPreview);
+document.getElementById('unit-nama').addEventListener('input', function() {
+  document.getElementById('unit-konversi-label').textContent = this.value.trim() || 'Satuan';
+  updateKonversiPreview();
+});
+function updateKonversiPreview() {
+  const nama = document.getElementById('unit-nama').value.trim() || 'Satuan';
+  const faktor = document.getElementById('unit-faktor').value;
+  const ke = document.getElementById('unit-konversi-ke').value;
+  const preview = document.getElementById('unit-konversi-preview');
+  if (faktor && ke && !document.getElementById('unit-is-dasar').checked) {
+    preview.textContent = '1 '+nama+' = '+faktor+' '+ke;
+  } else {
+    preview.textContent = '';
+  }
+}
+function closeUnitForm() {
+  document.getElementById('unit-form-overlay').classList.add('hidden');
+  document.getElementById('unit-form-slideover').classList.add('hidden');
+}
+function saveUnit() {
+  const nama = document.getElementById('unit-nama').value.trim();
+  if (!nama) { showToast('⚠️ Nama satuan wajib diisi'); return; }
+  const singkatan = document.getElementById('unit-singkatan').value.trim();
+  const oldNama = document.getElementById('unit-nama').dataset.oldNama;
+  const isDasar = document.getElementById('unit-is-dasar').checked;
+  const faktor = isDasar ? 1 : (parseInt(document.getElementById('unit-faktor').value) || 1);
+  const konversiKe = isDasar ? nama : document.getElementById('unit-konversi-ke').value;
+  let units = getUnits();
+  if (oldNama) {
+    units = units.map(u => u.nama===oldNama ? {nama, singkatan, konversi_ke: konversiKe, faktor, is_dasar: isDasar} : u);
+  } else {
+    if (units.some(u => u.nama.toLowerCase()===nama.toLowerCase())) { showToast('⚠️ Satuan sudah ada'); return; }
+    units.push({nama, singkatan, konversi_ke: konversiKe, faktor, is_dasar: isDasar});
+  }
+  saveUnits(units);
+  renderUnitTable();
+  closeUnitForm();
+  showToast('✅ Satuan disimpan');
+}
+
+// ===== TOAST =====
+function toast(msg) { showToast(msg); }
+
+renderProductTable();
+renderSupplierTable();
+renderUnitTable();
+
+// Init from localStorage
+(function(){const n=localStorage.getItem('apotek_pos_profile_name');if(n)document.querySelector('header .font-mono.text-primary').textContent='💊 '+n;const r=localStorage.getItem('apotek_pos_role');const lb={owner:'👑 Owner',admin:'🏥 Admin',kasir:'💰 Kasir'};if(r){document.querySelector('header .text-xs.text-gray-500 dark:text-gray-400').textContent=(lb[r]||r)+' · Outlet Pusat';}})();
+
+// ===== INIT: read profile from localStorage =====
+(function(){const n=localStorage.getItem('apotek_pos_profile_name')||'ApotekPOS';const el=document.getElementById('module-header-name');if(el)el.textContent='?? '+n;})();
+</script>
+
+<script>
+  function toggleSidebar() {
+      const sidebar = document.getElementById('global-sidebar');
+      const texts = sidebar.querySelectorAll('.nav-text');
+      const isCollapsed = sidebar.classList.contains('w-16');
+      
+      if(isCollapsed) {
+          sidebar.classList.remove('w-16');
+          sidebar.classList.add('w-56');
+          texts.forEach(t => t.classList.remove('hidden'));
+      } else {
+          sidebar.classList.remove('w-56');
+          sidebar.classList.add('w-16');
+          texts.forEach(t => t.classList.add('hidden'));
+      }
+  }
+</script>
+
+<script>
+  function comingSoon(feature) {
+      alert(`Fitur ${feature} sedang dalam tahap pengembangan dan akan terhubung ke Modul Kamera / Supabase di rilis selanjutnya.`);
+  }
+</script>
+<!-- FIX: Kategori CRUD — previously only toast -->
+<script>
+(function(){
+  var _origSwitchTab = switchTab;
+  // Override: when Kategori tab opened, show form instead of toast
+  var _origTambahKategori = function() {
+    var nama = prompt('📂 Nama Kategori Baru:');
+    if (!nama) return;
+    var cats = [];
+    try { cats = JSON.parse(localStorage.getItem('apotek_pos_categories') || '[]'); } catch(e) {}
+    cats.push({ id: 'cat-'+Date.now(), nama: nama, parent_id: null, created_at: new Date().toISOString() });
+    localStorage.setItem('apotek_pos_categories', JSON.stringify(cats));
+    renderCategoryTree();
+    showToast('✅ Kategori "' + nama + '" ditambahkan');
+  };
+  // Expose to the Tambah Kategori button
+  window.tambahKategori = _origTambahKategori;
+  
+  window.renderCategoryTree = function() {
+    var cats = [];
+    try { cats = JSON.parse(localStorage.getItem('apotek_pos_categories') || '[]'); } catch(e) {}
+    var tree = document.querySelector('#tab-kategori ul, #tab-kategori .category-tree');
+    if (!tree) {
+      // Find the kategori tab content and inject tree
+      var tab = document.getElementById('tab-kategori');
+      if (tab) {
+        var existing = tab.querySelector('.space-y-1');
+        if (existing) {
+          existing.innerHTML = cats.length ? cats.map(function(c) {
+            return '<div class="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-900 rounded-lg"><span class="text-sm">📁 ' + c.nama + '</span><button onclick="deleteCategory(\''+c.id+'\')" class="text-red-400 hover:text-red-600 text-xs">✕</button></div>';
+          }).join('') : '<p class="text-sm text-gray-400 px-3 py-2">Belum ada kategori. Klik "Tambah Kategori" untuk menambah.</p>';
+        }
+      }
+    }
+  };
+  window.deleteCategory = function(id) {
+    if (!confirm('Hapus kategori ini?')) return;
+    var cats = [];
+    try { cats = JSON.parse(localStorage.getItem('apotek_pos_categories') || '[]'); } catch(e) {}
+    cats = cats.filter(function(c) { return c.id !== id; });
+    localStorage.setItem('apotek_pos_categories', JSON.stringify(cats));
+    renderCategoryTree();
+    showToast('🗑 Kategori dihapus');
+  };
+  // Init tree on page load
+  setTimeout(renderCategoryTree, 500);
+})();
+</script>
+<!-- FIX: ProductDB integration + toggle aktif/nonaktif -->
+<script>
+(function(){
+  if (!window.ProductDB) return;
+  
+  // Override loadProducts to use ProductDB
+  var _origLoad = loadProducts;
+  loadProducts = function() {
+    var prods = ProductDB.getAllIncInactive();
+    // Ensure backward compat: keep the original defaultProducts if ProductDB returns empty
+    if (!prods.length) {
+      prods = ProductDB.getDefaults();
+      ProductDB.save(prods);
+    }
+    return prods;
+  };
+  
+  // Override saveProducts to use ProductDB
+  var _origSave = saveProducts;
+  saveProducts = function(data) { ProductDB.save(data); };
+  
+  // Reload products with new layer
+  products = loadProducts();
+  
+  // Add "Aktifkan" button handler for inactive products
+  window.toggleProductActive = function(kode) {
+    var result = ProductDB.toggleActive(kode);
+    if (result) {
+      products = loadProducts();
+      renderProductTable();
+      showToast(result.is_aktif ? '✅ Produk diaktifkan' : '❌ Produk dinonaktifkan');
+    }
+  };
+  
+  // Patch deleteProductForm to toggle instead of one-way
+  var _origDelete = deleteProductForm;
+  deleteProductForm = function() {
+    var kode = document.getElementById('form-kode').value.trim();
+    if (!kode) return;
+    var prod = products.find(function(p) { return p.kode === kode || p.id === kode; });
+    if (!prod) return;
+    var action = prod.is_aktif ? 'menonaktifkan' : 'mengaktifkan kembali';
+    if (confirm('Yakin ingin ' + action + ' produk ini?')) {
+      ProductDB.toggleActive(kode);
+      products = loadProducts();
+      renderProductTable();
+      closeProductForm();
+      showToast(prod.is_aktif ? '❌ Produk dinonaktifkan' : '✅ Produk diaktifkan kembali');
+    }
+  };
+  
+  // Update delete button text based on active status
+  var _origOpenForm = openProductForm;
+  openProductForm = function(kode) {
+    _origOpenForm(kode);
+    var prod = products.find(function(p) { return p.kode === kode || p.id === kode; });
+    var delBtn = document.getElementById('btn-delete');
+    if (delBtn && prod) {
+      delBtn.textContent = prod.is_aktif ? '❌ Nonaktifkan' : '✅ Aktifkan Kembali';
+    }
+  };
+  
+  // Re-render on load
+  setTimeout(function() { renderProductTable(); }, 300);
+})();
+</script>
+<!-- FIX: Inject lead_time field into product form -->
+<script>
+(function(){
+  var form = document.getElementById('product-form');
+  if (!form) return;
+  // Add lead_time input after stok_minimum
+  var stokMinRow = document.getElementById('form-stok-minimum').closest('div');
+  if (stokMinRow) {
+    var leadDiv = document.createElement('div');
+    leadDiv.innerHTML = '<label class="block text-xs font-medium mb-1">Lead Time Supplier (hari)</label><input type="number" id="form-lead-time" value="3" min="1" max="90" class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm">';
+    stokMinRow.parentNode.insertBefore(leadDiv, stokMinRow.nextSibling);
+  }
+  // Patch openProductForm to include lead_time
+  var origOpen = openProductForm;
+  openProductForm = function(prod) {
+    origOpen(prod);
+    var lt = document.getElementById('form-lead-time');
+    if (lt) lt.value = (prod && prod.lead_time) ? prod.lead_time : 3;
+  };
+  // Patch saveProductForm to read lead_time
+  var origSave = saveProductForm;
+  saveProductForm = function() {
+    var ltEl = document.getElementById('form-lead-time');
+    if (ltEl) {
+      var lt = parseInt(ltEl.value || '3', 10);
+      var origCreate = products.unshift;
+      // Intercept: read lead_time after original save runs
+      var _origUnshift = Array.prototype.unshift;
+    }
+    origSave();
+    // After save, update lead_time in the saved product
+    if (ltEl) {
+      var all = [];
+      try { all = JSON.parse(localStorage.getItem('apotek_products_master') || '[]'); } catch(e) {}
+      if (all.length) {
+        all[0].lead_time = parseInt(ltEl.value || '3', 10);
+        localStorage.setItem('apotek_products_master', JSON.stringify(all));
+      }
+    }
+  };
+})();
+</script>
+<div style="text-align:center;padding:8px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb">Powered by <b>Digicraft</b></div></body>
+</html>

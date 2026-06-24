@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Manajemen Pengguna | Apotek POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="js/supabase-bridge.js"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#15803D',secondary:'#22C55E',accent:'#0369A1','dashboard-gray':'#F4F5F7','orange-accent':'#FF5A1F'}}}}</script>
+<style>.card-shadow{box-shadow:0 4px 6px -1px rgba(0,0,0,.05)}.row-hover:hover{background:#f9fafb}</style>
+<script>function toggleDarkMode(){document.documentElement.classList.toggle('dark');localStorage.setItem('theme',document.documentElement.classList.contains('dark')?'dark':'light')}if(localStorage.theme==='dark')document.documentElement.classList.add('dark')</script>
+</head>
+<body class="bg-dashboard-gray dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100">
+
+<header class="sticky top-0 z-40 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 card-shadow">
+  <div class="flex items-center gap-3"><span class="text-lg font-bold text-primary font-mono">💊 ApotekPOS</span><span class="text-sm font-medium">Manajemen Pengguna</span></div>
+  <a href="unified_home.html" class="text-xs text-accent hover:underline"></a>
+</header>
+
+<div class="p-6 max-w-5xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <div><h1 class="text-2xl font-bold">🛡️ Manajemen Pengguna</h1><p class="text-sm text-gray-500">Kelola akun kasir, admin, dan owner</p></div>
+    <button onclick="openUserForm()" class="px-4 py-2 bg-orange-accent text-white rounded-lg text-sm font-bold hover:bg-orange-700 card-shadow">+ Tambah User</button>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+    <table class="w-full text-sm">
+      <thead><tr class="bg-gray-50 dark:bg-gray-900 text-xs text-gray-500"><th class="px-4 py-3 text-left">Nama</th><th class="px-4 py-3 text-left">Email</th><th class="px-4 py-3 text-center">Role</th><th class="px-4 py-3 text-center">Outlet</th><th class="px-4 py-3 text-center">Status</th><th class="px-4 py-3 text-right">Aksi</th></tr></thead>
+      <tbody id="user-table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- FORM MODAL -->
+<div id="user-modal" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center" onclick="if(event.target===this)closeUserForm()">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md" onclick="event.stopPropagation()">
+    <h3 class="text-lg font-bold mb-4" id="user-form-title">Tambah User</h3>
+    <div class="space-y-3">
+      <input type="hidden" id="user-edit-id">
+      <div><label class="block text-xs font-medium mb-1">Nama Lengkap <span class="text-red-500">*</span></label><input type="text" id="user-nama" placeholder="Nama user..." class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      <div><label class="block text-xs font-medium mb-1">Email</label><input type="email" id="user-email" placeholder="email@apotek.com" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      <div><label class="block text-xs font-medium mb-1">Password</label><input type="password" id="user-password" placeholder="Minimal 6 karakter" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      <div><label class="block text-xs font-medium mb-1">Role</label><select id="user-role" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><option value="kasir">Kasir</option><option value="admin">Admin (Apoteker)</option><option value="owner">Owner</option></select></div>
+      <div><label class="block text-xs font-medium mb-1">Outlet</label><select id="user-outlet" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><option>Outlet Pusat</option></select></div>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button onclick="closeUserForm()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm">Batal</button>
+      <button onclick="saveUser()" class="flex-1 py-2.5 bg-orange-accent text-white rounded-lg text-sm font-bold">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"></div>
+
+<script>
+function getUsers(){try{return JSON.parse(localStorage.getItem('apotek_pos_users')||'[]')}catch(e){return getDefaultUsers()}}
+function getDefaultUsers(){return [{id:'user-1',nama:'Dr. Andi Pratama, S.Farm., Apt.',email:'admin@apotek.com',role:'admin',outlet:'Outlet Pusat',status:'active'},{id:'user-2',nama:'Budi Kasir',email:'kasir@apotek.com',role:'kasir',outlet:'Outlet Pusat',status:'active'},{id:'user-3',nama:'Owner Apotek',email:'owner@apotek.com',role:'owner',outlet:'Outlet Pusat',status:'active'}]}
+function saveUsers(d){localStorage.setItem('apotek_pos_users',JSON.stringify(d))}
+
+function renderUserTable(){
+  var users=getUsers();
+  var roleMap={owner:{cls:'bg-purple-100 text-purple-700',lbl:'Owner'},admin:{cls:'bg-blue-100 text-blue-700',lbl:'Admin'},kasir:{cls:'bg-green-100 text-green-700',lbl:'Kasir'}};
+  document.getElementById('user-table-body').innerHTML=users.map(function(u){
+    var r=roleMap[u.role]||roleMap.kasir;
+    return'<tr class="row-hover"><td class="px-4 py-3 font-medium text-xs">'+u.nama+'</td><td class="px-4 py-3 text-xs">'+u.email+'</td><td class="px-4 py-3 text-center"><span class="text-[10px] '+r.cls+' px-2 py-0.5 rounded-full font-medium">'+r.lbl+'</span></td><td class="px-4 py-3 text-center text-xs">'+u.outlet+'</td><td class="px-4 py-3 text-center"><span class="text-[10px] '+(u.status==='active'?'bg-green-100 text-green-700':'bg-red-100 text-red-700')+' px-2 py-0.5 rounded-full">'+(u.status==='active'?'Aktif':'Nonaktif')+'</span></td><td class="px-4 py-3 text-right"><button onclick="editUser(\''+u.id+'\')" class="text-accent hover:underline text-xs mr-1">Edit</button><button onclick="toggleUser(\''+u.id+'\')" class="text-xs mr-1 '+(u.status==='active'?'text-red-400 hover:underline':'text-green-400 hover:underline')+'">'+(u.status==='active'?'Nonaktifkan':'Aktifkan')+'</button><button onclick="deleteUser(\''+u.id+'\')" class="text-red-400 hover:underline text-xs">Hapus</button></td></tr>';
+  }).join('');
+}
+
+function openUserForm(id){
+  document.getElementById('user-modal').classList.remove('hidden');
+  if(id){
+    var u=getUsers().find(function(x){return x.id===id});
+    if(u){
+      document.getElementById('user-edit-id').value=u.id;
+      document.getElementById('user-nama').value=u.nama;
+      document.getElementById('user-email').value=u.email;
+      document.getElementById('user-role').value=u.role;
+      document.getElementById('user-form-title').textContent='Edit: '+u.nama;
+    }
+  }else{
+    document.getElementById('user-edit-id').value='';
+    document.getElementById('user-nama').value='';
+    document.getElementById('user-email').value='';
+    document.getElementById('user-password').value='';
+    document.getElementById('user-form-title').textContent='Tambah User';
+  }
+}
+function closeUserForm(){document.getElementById('user-modal').classList.add('hidden')}
+function saveUser(){
+  var nama=document.getElementById('user-nama').value.trim();
+  if(!nama){showToast('⚠️ Nama wajib diisi');return}
+  var editId=document.getElementById('user-edit-id').value;
+  var users=getUsers();
+  var userData={id:editId||'user-'+Date.now(),nama:nama,email:document.getElementById('user-email').value.trim(),role:document.getElementById('user-role').value,outlet:document.getElementById('user-outlet').value,status:'active'};
+  if(editId){users=users.map(function(u){return u.id===editId?Object.assign({},u,userData):u})}else{users.unshift(userData)}
+  saveUsers(users);closeUserForm();renderUserTable();showToast('✅ User disimpan');
+}
+function editUser(id){openUserForm(id)}
+function toggleUser(id){
+  var users=getUsers().map(function(u){return u.id===id?Object.assign({},u,{status:u.status==='active'?'inactive':'active'}):u});
+  saveUsers(users);renderUserTable();showToast('✅ Status diubah');
+}
+function deleteUser(id){if(!confirm('Hapus user ini?'))return;saveUsers(getUsers().filter(function(u){return u.id!==id}));renderUserTable();showToast('🗑 User dihapus')}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden');setTimeout(function(){t.classList.add('hidden')},2000)}
+document.addEventListener('DOMContentLoaded',renderUserTable);
+</script>
+<div style="text-align:center;padding:8px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb">Powered by <b>Digicraft</b></div></body>
+</html>

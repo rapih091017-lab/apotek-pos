@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketing — Apotek POS</title>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { mono: ['Fira Code','Consolas','monospace'], sans: ['Fira Sans','Inter','system-ui','sans-serif'] },
+      colors: {
+        primary:'#15803D', secondary:'#22C55E', accent:'#0369A1',
+        surface:'#F0FDF4', 'text-primary':'#14532D', 'text-secondary':'#166534',
+        'dashboard-gray': '#F4F5F7', 'orange-accent': '#FF5A1F'
+      }
+    }
+  }
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  .card-shadow { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); }
+  .dark .card-shadow { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); }
+  .row-hover:hover { background: #f9fafb; }
+  .dark .row-hover:hover { background: #1f2937; }
+  .nav-active { background: #111827; color: #ffffff; }
+  .dark .nav-active { background: #FF5A1F; color: #ffffff; }
+  .fade-in { animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:50; }
+  .modal-box { background:#fff; border-radius:1rem; max-width:540px; width:90%; max-height:90vh; overflow-y:auto; }
+  .dark .modal-box { background:#1f2937; }
+  .toast-container { position:fixed; bottom:1.5rem; right:1.5rem; z-index:100; display:flex; flex-direction:column; gap:0.5rem; }
+  .toast { padding:0.75rem 1.25rem; border-radius:0.75rem; font-size:0.875rem; font-weight:500; animation:slideUp 0.3s ease; box-shadow:0 4px 12px rgba(0,0,0,0.15); max-width:360px; }
+  @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+</style>
+</head>
+<body class="bg-dashboard-gray dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors">
+
+<!-- ===== TOASTS ===== -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ===== HEADER ===== -->
+<header class="sticky top-0 z-40 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 card-shadow">
+  <div class="flex items-center gap-3">
+    <span class="text-lg font-bold text-primary font-mono">💊 ApotekPOS</span>
+    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Marketing</span>
+    <span class="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">Outlet Pusat · Admin (Apoteker)</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <a href="index.html" class="text-xs text-primary hover:underline font-medium"></a>
+    <button onclick="toggleDarkMode()" class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition" title="Toggle Dark Mode">
+      <span id="theme-icon">🌙</span>
+    </button>
+  </div>
+</header>
+
+<div class="flex">
+  <!-- ===== SIDEBAR ===== -->
+  <nav class="w-56 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-[calc(100vh-3.5rem)] flex-shrink-0 card-shadow hidden md:block">
+    <div class="p-3 space-y-1">
+      <button onclick="switchTab('template')" id="nav-template" class="nav-active w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+        <span>📋</span> Template WA
+      </button>
+      <button onclick="switchTab('followup')" id="nav-followup" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+        <span>📞</span> Follow-up
+      </button>
+      <button onclick="switchTab('promo')" id="nav-promo" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+        <span>🏷️</span> Promo
+      </button>
+    </div>
+  </nav>
+  <!-- Mobile tab bar -->
+  <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-40 flex">
+    <button onclick="switchTab('template')" id="mnav-template" class="flex-1 py-3 text-xs font-medium flex flex-col items-center gap-0.5 text-gray-400">
+      <span>📋</span> Template
+    </button>
+    <button onclick="switchTab('followup')" id="mnav-followup" class="flex-1 py-3 text-xs font-medium flex flex-col items-center gap-0.5 text-gray-400">
+      <span>📞</span> Follow-up
+    </button>
+    <button onclick="switchTab('promo')" id="mnav-promo" class="flex-1 py-3 text-xs font-medium flex flex-col items-center gap-0.5 text-gray-400">
+      <span>🏷️</span> Promo
+    </button>
+  </div>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="flex-1 p-4 md:p-6 pb-20 md:pb-6">
+
+    <!-- ========== TAB: TEMPLATE WA ========== -->
+    <div id="tab-template" class="fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Template WhatsApp</h1><p class="text-sm text-gray-500 dark:text-gray-400">Kelola template pesan WA dengan variabel otomatis</p></div>
+        <button onclick="openTemplateForm(null)" class="px-4 py-2 bg-orange-accent text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Tambah Template
+        </button>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left">
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Nama</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Pesan (Preview)</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Kategori</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Aksi</th>
+          </tr></thead>
+          <tbody class="divide-y divide-gray-100" id="template-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== TAB: FOLLOW-UP ========== -->
+    <div id="tab-followup" class="fade-in hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Follow-up Pelanggan</h1><p class="text-sm text-gray-500 dark:text-gray-400">Jadwal dan riwayat follow-up pelanggan</p></div>
+        <button onclick="openFollowupForm(null)" class="px-4 py-2 bg-orange-accent text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Tambah Follow-up
+        </button>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-3 mb-4">
+        <div class="relative flex-1"><svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg><input type="text" id="followup-search" placeholder="Cari pelanggan atau obat..." class="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" oninput="renderFollowupTable()"></div>
+        <select id="followup-status-filter" onchange="renderFollowupTable()" class="py-2 px-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+          <option value="">Semua Status</option><option value="pending">Belum</option><option value="done">Sudah</option><option value="cancel">Batal</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Total</p><p class="text-2xl font-bold font-mono" id="fu-total">0</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-amber-200 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Menunggu</p><p class="text-2xl font-bold font-mono text-amber-600" id="fu-pending">0</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-green-200 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Selesai</p><p class="text-2xl font-bold font-mono text-green-700" id="fu-done">0</p></div>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left">
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Tanggal</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Pelanggan</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">No. WA</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Obat</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Alasan</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Status</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Aksi</th>
+          </tr></thead>
+          <tbody class="divide-y divide-gray-100" id="followup-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== TAB: PROMO ========== -->
+    <div id="tab-promo" class="fade-in hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Promo & Diskon</h1><p class="text-sm text-gray-500 dark:text-gray-400">Kelola program promo, diskon, dan penawaran khusus</p></div>
+        <button onclick="openPromoForm(null)" class="px-4 py-2 bg-orange-accent text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Tambah Promo
+        </button>
+      </div>
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Aktif</p><p class="text-2xl font-bold font-mono text-green-700" id="promo-active-count">0</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Akan Datang</p><p class="text-2xl font-bold font-mono text-blue-600" id="promo-upcoming-count">0</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500 dark:text-gray-400">Selesai</p><p class="text-2xl font-bold font-mono text-gray-500 dark:text-gray-400" id="promo-done-count">0</p></div>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left">
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Nama Promo</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Tipe</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Nilai</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Produk</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Periode</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Status</th>
+            <th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Aksi</th>
+          </tr></thead>
+          <tbody class="divide-y divide-gray-100" id="promo-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===== TEMPLATE FORM MODAL ===== -->
+<div id="template-modal" class="hidden modal-overlay" onclick="if(event.target===this)closeTemplateForm()">
+  <div class="modal-box p-6" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg" id="template-form-title">Tambah Template WA</h3>
+      <button onclick="closeTemplateForm()" class="text-gray-400 hover:text-red-500 text-xl leading-none">&times;</button>
+    </div>
+    <input type="hidden" id="template-edit-id">
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium mb-1">Nama Template <span class="text-red-500">*</span></label>
+        <input type="text" id="template-nama" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Contoh: Follow-up Tebus Resep">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium mb-1">Kategori</label>
+          <select id="template-kategori" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+            <option>Follow-up</option><option>Promo</option><option>Ucapan</option><option>Info Stok</option><option>Lainnya</option>
+          </select>
+        </div>
+        <div></div>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="text-xs font-medium">Pesan WA <span class="text-red-500">*</span></label>
+          <div class="flex gap-1 flex-wrap">
+            <button onclick="insertVar('{nama_pelanggan}')" class="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded hover:bg-green-200 cursor-pointer">{nama_pelanggan}</button>
+            <button onclick="insertVar('{nama_obat}')" class="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded hover:bg-green-200 cursor-pointer">{nama_obat}</button>
+            <button onclick="insertVar('{dosis}')" class="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded hover:bg-green-200 cursor-pointer">{dosis}</button>
+            <button onclick="insertVar('{nama_apotek}')" class="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded hover:bg-green-200 cursor-pointer">{nama_apotek}</button>
+            <button onclick="insertVar('{tanggal}')" class="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded hover:bg-green-200 cursor-pointer">{tanggal}</button>
+            <button onclick="insertVar('{promo}')" class="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded hover:bg-green-200 cursor-pointer">{promo}</button>
+          </div>
+        </div>
+        <textarea id="template-pesan" rows="5" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none resize-none font-sans" placeholder="Halo {nama_pelanggan},&#10;&#10;Ini dari {nama_apotek}..." oninput="updateTemplatePreview()"></textarea>
+      </div>
+      <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-green-50 dark:bg-green-900/20 max-w-xs">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-3 text-xs whitespace-pre-wrap card-shadow" id="template-preview" style="font-family:system-ui,sans-serif;"></div>
+        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1 text-right">Preview WhatsApp</p>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveTemplate()" class="flex-1 px-4 py-2.5 bg-orange-accent text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer">💾 Simpan</button>
+      <button onclick="closeTemplateForm()" class="px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FOLLOW-UP FORM MODAL ===== -->
+<div id="followup-modal" class="hidden modal-overlay" onclick="if(event.target===this)closeFollowupForm()">
+  <div class="modal-box p-6" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg" id="followup-form-title">Tambah Follow-up</h3>
+      <button onclick="closeFollowupForm()" class="text-gray-400 hover:text-red-500 text-xl leading-none">&times;</button>
+    </div>
+    <input type="hidden" id="fu-edit-id">
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium mb-1">Pelanggan <span class="text-red-500">*</span></label>
+        <input type="text" id="fu-pelanggan" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Nama pelanggan...">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium mb-1">No. WA</label>
+          <input type="text" id="fu-nowa" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="0812-xxxx-xxxx">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1">Tanggal</label>
+          <input type="date" id="fu-tanggal" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">Obat Terkait</label>
+        <input type="text" id="fu-obat" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Nama obat...">
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">Alasan Follow-up</label>
+        <select id="fu-alasan" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+          <option>Tebus Resep</option><option>Refill / Habis</option><option>Cek Efek Obat</option><option>Kontrol Rutin</option><option>Promo</option><option>Lainnya</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">Pilih Template WA</label>
+        <select id="fu-template" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+          <option value="">-- Pilih Template --</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">Status</label>
+        <select id="fu-status" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+          <option value="pending">Belum</option><option value="done">Sudah</option><option value="cancel">Batal</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">Catatan</label>
+        <textarea id="fu-catatan" rows="2" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none resize-none" placeholder="Catatan follow-up..."></textarea>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveFollowup()" class="flex-1 px-4 py-2.5 bg-orange-accent text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer">💾 Simpan</button>
+      <button onclick="closeFollowupForm()" class="px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PROMO FORM MODAL ===== -->
+<div id="promo-modal" class="hidden modal-overlay" onclick="if(event.target===this)closePromoForm()">
+  <div class="modal-box p-6" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg" id="promo-form-title">Tambah Promo</h3>
+      <button onclick="closePromoForm()" class="text-gray-400 hover:text-red-500 text-xl leading-none">&times;</button>
+    </div>
+    <input type="hidden" id="promo-edit-id">
+    <div class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium mb-1">Nama Promo <span class="text-red-500">*</span></label>
+          <input type="text" id="promo-nama" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Contoh: Diskon Lebaran">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1">Tipe Diskon</label>
+          <select id="promo-tipe" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+            <option value="persen">Persentase (%)</option><option value="nominal">Nominal (Rp)</option><option value="bundle">Bundling</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium mb-1">Nilai</label>
+          <input type="number" id="promo-nilai" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-accent outline-none" placeholder="10">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1">Target Produk</label>
+          <select id="promo-produk" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+            <option value="">Semua Produk</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium mb-1">Tanggal Mulai</label>
+          <input type="date" id="promo-mulai" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1">Tanggal Selesai</label>
+          <input type="date" id="promo-selesai" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">Deskripsi</label>
+        <textarea id="promo-deskripsi" rows="2" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none resize-none" placeholder="Deskripsi promo..."></textarea>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="savePromo()" class="flex-1 px-4 py-2.5 bg-orange-accent text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer">💾 Simpan</button>
+      <button onclick="closePromoForm()" class="px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SEND WA MODAL ===== -->
+<div id="sendwa-modal" class="hidden modal-overlay" onclick="if(event.target===this)closeSendWA()">
+  <div class="modal-box p-6" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg">Kirim WhatsApp</h3>
+      <button onclick="closeSendWA()" class="text-gray-400 hover:text-red-500 text-xl leading-none">&times;</button>
+    </div>
+    <div class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium mb-1">No. WA Tujuan <span class="text-red-500">*</span></label>
+          <input type="text" id="sendwa-nomor" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-accent outline-none" placeholder="0812-xxxx-xxxx">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1">Nama Pelanggan</label>
+          <input type="text" id="sendwa-nama" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Nama...">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium mb-1">Nama Obat</label>
+          <input type="text" id="sendwa-obat" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="Obat...">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1">Dosis</label>
+          <input type="text" id="sendwa-dosis" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none" placeholder="3x1 tablet...">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">Template</label>
+        <select id="sendwa-template" onchange="onSendWATemplateChange()" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+          <option value="">-- Pilih Template --</option>
+        </select>
+      </div>
+      <div id="sendwa-fields" class="hidden">
+        <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-green-50 dark:bg-green-900/20">
+          <div class="bg-white dark:bg-gray-800 rounded-lg p-3 text-xs whitespace-pre-wrap card-shadow" id="sendwa-preview"></div>
+        </div>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="doSendWA()" class="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition cursor-pointer">📱 Kirim WhatsApp</button>
+      <button onclick="closeSendWA()" class="px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCRIPTS ===== -->
+<script src="js/supabase-bridge.js"></script>
+<script src="js/product-schema.js"></script>
+
+<script>
+'use strict';
+
+// ===== DARK MODE =====
+function toggleDarkMode() {
+  document.documentElement.classList.toggle('dark');
+  var isDark = document.documentElement.classList.contains('dark');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+}
+(function initTheme() {
+  if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  }
+  document.getElementById('theme-icon').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+})();
+
+// ===== TOAST =====
+function showToast(msg) {
+  var container = document.getElementById('toast-container');
+  var el = document.createElement('div');
+  el.className = 'toast bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700';
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(function() { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(function() { el.remove(); }, 300); }, 3000);
+}
+
+// ===== TAB NAVIGATION =====
+var currentTab = 'template';
+function switchTab(tab) {
+  currentTab = tab;
+  ['template','followup','promo'].forEach(function(t) {
+    var el = document.getElementById('tab-' + t);
+    var nav = document.getElementById('nav-' + t);
+    var mnav = document.getElementById('mnav-' + t);
+    if (t === tab) {
+      el.classList.remove('hidden');
+      nav.classList.add('nav-active');
+      if (mnav) { mnav.classList.remove('text-gray-400'); mnav.classList.add('text-orange-accent','dark:text-orange-400'); }
+    } else {
+      el.classList.add('hidden');
+      nav.classList.remove('nav-active');
+      if (mnav) { mnav.classList.add('text-gray-400'); mnav.classList.remove('text-orange-accent','dark:text-orange-400'); }
+    }
+  });
+  if (tab === 'template') renderTemplateTable();
+  if (tab === 'followup') renderFollowupTable();
+  if (tab === 'promo') renderPromoTable();
+}
+
+// ===== HELPER: Variable substitution =====
+function substituteVars(text, vars) {
+  vars = vars || {};
+  var apotek = localStorage.getItem('apotek_pos_profile_name') || 'Apotek Sehat Sentosa';
+  var today = new Date().toLocaleDateString('id', {day:'numeric',month:'long',year:'numeric'});
+  return (text||'').replace(/\{(\w+)\}/g, function(m, key) {
+    if (vars[key] !== undefined) return vars[key];
+    if (key === 'nama_apotek') return apotek;
+    if (key === 'tanggal') return today;
+    if (key === 'tanggal_kadaluarsa') return '30 Juni 2026';
+    return m;
+  });
+}
+
+// ===== TEMPLATE WA =====
+function getTemplates() {
+  try { var d = JSON.parse(localStorage.getItem('apotek_pos_wa_templates')); return Array.isArray(d) && d.length ? d : defaultTemplates(); }
+  catch(e) { return defaultTemplates(); }
+}
+function defaultTemplates() {
+  return [
+    { id:'tpl-1', nama:'Follow-up Tebus Resep', kategori:'Follow-up', pesan:'Halo {nama_pelanggan},\n\nIni dari {nama_apotek}. Kami ingin mengingatkan untuk menebus resep {nama_obat} Anda.\n\nDosis: {dosis}\n\nSilakan datang ke apotek kami. Terima kasih! 😊' },
+    { id:'tpl-2', nama:'Promo Bulanan', kategori:'Promo', pesan:'Halo {nama_pelanggan},\n\nAda promo spesial dari {nama_apotek}!\n\n{promo}\n\nBerlaku hingga {tanggal}.\n\nKunjungi apotek kami sekarang! 🎉' },
+    { id:'tpl-3', nama:'Ucapan Terima Kasih', kategori:'Ucapan', pesan:'Halo {nama_pelanggan},\n\nTerima kasih telah berbelanja di {nama_apotek}. Semoga lekas sembuh!\n\nJangan ragu hubungi kami jika ada pertanyaan. 😊' }
+  ];
+}
+function saveTemplates(data) { localStorage.setItem('apotek_pos_wa_templates', JSON.stringify(data)); }
+
+function renderTemplateTable() {
+  var templates = getTemplates();
+  var tbody = document.getElementById('template-table-body');
+  tbody.innerHTML = templates.map(function(t) {
+    var preview = t.pesan.length > 80 ? t.pesan.substring(0,80).replace(/\n/g,' ') + '...' : t.pesan.replace(/\n/g,' ');
+    return '<tr class="row-hover cursor-pointer" onclick="openTemplateForm(\'' + t.id + '\')">'
+      + '<td class="px-4 py-3 font-medium text-xs">' + escHtml(t.nama) + '</td>'
+      + '<td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">' + escHtml(preview) + '</td>'
+      + '<td class="px-4 py-3 text-center"><span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">' + escHtml(t.kategori) + '</span></td>'
+      + '<td class="px-4 py-3 text-right">'
+      + '<button onclick="event.stopPropagation();openSendWA(\'' + t.id + '\')" class="text-green-600 hover:underline text-xs mr-2 font-medium">📱 Kirim</button>'
+      + '<button onclick="event.stopPropagation();deleteTemplate(\'' + t.id + '\')" class="text-red-500 hover:underline text-xs">Hapus</button>'
+      + '</td></tr>';
+  }).join('');
+  updateAllTemplateSelects();
+}
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function updateAllTemplateSelects() {
+  var templates = getTemplates();
+  var opts = templates.map(function(t) { return '<option value="' + t.id + '">' + escHtml(t.nama) + ' (' + escHtml(t.kategori) + ')</option>'; }).join('');
+  var fuSel = document.getElementById('fu-template');
+  var swSel = document.getElementById('sendwa-template');
+  if (fuSel) fuSel.innerHTML = '<option value="">-- Pilih Template --</option>' + opts;
+  if (swSel) swSel.innerHTML = '<option value="">-- Pilih Template --</option>' + opts;
+}
+
+function openTemplateForm(id) {
+  document.getElementById('template-modal').classList.remove('hidden');
+  if (id) {
+    var t = getTemplates().find(function(x) { return x.id === id; });
+    if (t) {
+      document.getElementById('template-nama').value = t.nama;
+      document.getElementById('template-kategori').value = t.kategori;
+      document.getElementById('template-pesan').value = t.pesan;
+      document.getElementById('template-edit-id').value = t.id;
+      document.getElementById('template-form-title').textContent = 'Edit Template WA';
+    }
+  } else {
+    document.getElementById('template-nama').value = '';
+    document.getElementById('template-kategori').value = 'Follow-up';
+    document.getElementById('template-pesan').value = '';
+    document.getElementById('template-edit-id').value = '';
+    document.getElementById('template-form-title').textContent = 'Tambah Template WA';
+  }
+  updateTemplatePreview();
+}
+function closeTemplateForm() { document.getElementById('template-modal').classList.add('hidden'); }
+
+function updateTemplatePreview() {
+  var pesan = document.getElementById('template-pesan').value;
+  var preview = substituteVars(pesan, { nama_pelanggan:'Budi Santoso', nama_obat:'Paracetamol 500mg', dosis:'3x1 tablet', promo:'Diskon 20%' });
+  document.getElementById('template-preview').textContent = preview || '(Preview akan muncul di sini)';
+}
+
+function insertVar(v) {
+  var ta = document.getElementById('template-pesan');
+  if (!ta) return;
+  var start = ta.selectionStart;
+  ta.value = ta.value.substring(0, start) + v + ta.value.substring(ta.selectionEnd);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = start + v.length;
+  updateTemplatePreview();
+  showToast('✅ Variable ' + v + ' ditambahkan');
+}
+
+function saveTemplate() {
+  var nama = document.getElementById('template-nama').value.trim();
+  var pesan = document.getElementById('template-pesan').value.trim();
+  if (!nama) { showToast('⚠️ Nama template wajib diisi'); return; }
+  if (!pesan) { showToast('⚠️ Pesan wajib diisi'); return; }
+  var kategori = document.getElementById('template-kategori').value;
+  var editId = document.getElementById('template-edit-id').value;
+  var templates = getTemplates();
+  if (editId) {
+    templates = templates.map(function(t) { return t.id === editId ? Object.assign({}, t, {nama:nama, kategori:kategori, pesan:pesan}) : t; });
+  } else {
+    templates.push({ id:'tpl-' + Date.now(), nama: nama, kategori: kategori, pesan: pesan });
+  }
+  saveTemplates(templates);
+  renderTemplateTable();
+  closeTemplateForm();
+  showToast('✅ Template WA disimpan');
+}
+function deleteTemplate(id) {
+  if (!confirm('Hapus template ini?')) return;
+  saveTemplates(getTemplates().filter(function(t) { return t.id !== id; }));
+  renderTemplateTable();
+  showToast('🗑 Template dihapus');
+}
+
+// ===== FOLLOW-UP =====
+function getFollowups() {
+  try { var d = JSON.parse(localStorage.getItem('apotek_pos_followups')); return Array.isArray(d) && d.length ? d : defaultFollowups(); }
+  catch(e) { return defaultFollowups(); }
+}
+function defaultFollowups() {
+  return [
+    { id:'fu-1', tanggal:'2026-06-19', pelanggan:'Budi Santoso', nowa:'081234567890', obat:'Paracetamol 500mg', alasan:'Tebus Resep', status:'pending', catatan:'Resep dari Dr. Andi' },
+    { id:'fu-2', tanggal:'2026-06-18', pelanggan:'Siti Aminah', nowa:'087654321098', obat:'Amoxicillin 500mg', alasan:'Refill / Habis', status:'done', catatan:'Sudah ditebus' },
+    { id:'fu-3', tanggal:'2026-06-17', pelanggan:'Andi Wijaya', nowa:'085512345678', obat:'Vitamin C 500mg', alasan:'Kontrol Rutin', status:'pending', catatan:'Janji kontrol minggu depan' },
+    { id:'fu-4', tanggal:'2026-06-16', pelanggan:'Ratna Dewi', nowa:'081398765432', obat:'Cetirizine 10mg', alasan:'Cek Efek Obat', status:'done', catatan:'Efek samping ringan - sudah diatasi' },
+    { id:'fu-5', tanggal:'2026-06-15', pelanggan:'Bambang S', nowa:'082155544433', obat:'OBH Combi', alasan:'Promo', status:'cancel', catatan:'Tidak tertarik promo' }
+  ];
+}
+function saveFollowups(data) { localStorage.setItem('apotek_pos_followups', JSON.stringify(data)); }
+
+function renderFollowupTable() {
+  var search = (document.getElementById('followup-search').value || '').toLowerCase();
+  var statusFilter = document.getElementById('followup-status-filter').value;
+  var all = getFollowups();
+  var data = all;
+  if (search) data = data.filter(function(f) { return f.pelanggan.toLowerCase().indexOf(search) >= 0 || f.obat.toLowerCase().indexOf(search) >= 0 || f.nowa.indexOf(search) >= 0; });
+  if (statusFilter) data = data.filter(function(f) { return f.status === statusFilter; });
+
+  document.getElementById('fu-total').textContent = all.length;
+  document.getElementById('fu-pending').textContent = all.filter(function(f) { return f.status === 'pending'; }).length;
+  document.getElementById('fu-done').textContent = all.filter(function(f) { return f.status === 'done'; }).length;
+
+  var statusMap = {
+    pending: { cls:'bg-amber-100 text-amber-700', lbl:'Belum' },
+    done: { cls:'bg-green-100 text-green-700', lbl:'Sudah' },
+    cancel: { cls:'bg-gray-100 text-gray-500', lbl:'Batal' }
+  };
+  var tbody = document.getElementById('followup-table-body');
+  tbody.innerHTML = data.map(function(f) {
+    var s = statusMap[f.status] || statusMap.pending;
+    return '<tr class="row-hover cursor-pointer" onclick="openFollowupForm(\'' + f.id + '\')">'
+      + '<td class="px-4 py-3 text-xs">' + escHtml(f.tanggal) + '</td>'
+      + '<td class="px-4 py-3 font-medium text-xs">' + escHtml(f.pelanggan) + '</td>'
+      + '<td class="px-4 py-3 text-xs font-mono">' + escHtml(f.nowa) + '</td>'
+      + '<td class="px-4 py-3 text-xs">' + escHtml(f.obat) + '</td>'
+      + '<td class="px-4 py-3 text-xs">' + escHtml(f.alasan) + '</td>'
+      + '<td class="px-4 py-3 text-center"><span class="text-[10px] ' + s.cls + ' px-2 py-0.5 rounded-full font-medium">' + s.lbl + '</span></td>'
+      + '<td class="px-4 py-3 text-right">'
+      + (f.status === 'pending' ? '<button onclick="event.stopPropagation();markFollowupDone(\'' + f.id + '\')" class="text-green-600 hover:underline text-xs mr-2 font-medium">✔ Selesai</button>' : '')
+      + '<button onclick="event.stopPropagation();sendFollowupWA(\'' + f.id + '\')" class="text-green-600 hover:underline text-xs mr-2 font-medium">📱 WA</button>'
+      + '<button onclick="event.stopPropagation();deleteFollowup(\'' + f.id + '\')" class="text-red-500 hover:underline text-xs">Hapus</button>'
+      + '</td></tr>';
+  }).join('');
+}
+
+function openFollowupForm(id) {
+  document.getElementById('followup-modal').classList.remove('hidden');
+  updateAllTemplateSelects();
+  if (id) {
+    var f = getFollowups().find(function(x) { return x.id === id; });
+    if (f) {
+      document.getElementById('fu-pelanggan').value = f.pelanggan;
+      document.getElementById('fu-nowa').value = f.nowa;
+      document.getElementById('fu-tanggal').value = f.tanggal;
+      document.getElementById('fu-obat').value = f.obat;
+      document.getElementById('fu-alasan').value = f.alasan;
+      document.getElementById('fu-status').value = f.status;
+      document.getElementById('fu-catatan').value = f.catatan || '';
+      document.getElementById('fu-edit-id').value = f.id;
+      document.getElementById('followup-form-title').textContent = 'Edit Follow-up';
+    }
+  } else {
+    document.getElementById('fu-pelanggan').value = '';
+    document.getElementById('fu-nowa').value = '';
+    document.getElementById('fu-tanggal').value = new Date().toISOString().split('T')[0];
+    document.getElementById('fu-obat').value = '';
+    document.getElementById('fu-alasan').value = 'Tebus Resep';
+    document.getElementById('fu-status').value = 'pending';
+    document.getElementById('fu-catatan').value = '';
+    document.getElementById('fu-edit-id').value = '';
+    document.getElementById('followup-form-title').textContent = 'Tambah Follow-up';
+  }
+}
+function closeFollowupForm() { document.getElementById('followup-modal').classList.add('hidden'); }
+
+function saveFollowup() {
+  var pelanggan = document.getElementById('fu-pelanggan').value.trim();
+  if (!pelanggan) { showToast('⚠️ Nama pelanggan wajib diisi'); return; }
+  var editId = document.getElementById('fu-edit-id').value;
+  var fu = {
+    id: editId || 'fu-' + Date.now(),
+    pelanggan: pelanggan,
+    nowa: document.getElementById('fu-nowa').value.trim(),
+    tanggal: document.getElementById('fu-tanggal').value,
+    obat: document.getElementById('fu-obat').value.trim(),
+    alasan: document.getElementById('fu-alasan').value,
+    status: document.getElementById('fu-status').value,
+    catatan: document.getElementById('fu-catatan').value.trim()
+  };
+  var followups = getFollowups();
+  if (editId) {
+    followups = followups.map(function(f) { return f.id === editId ? fu : f; });
+  } else {
+    followups.unshift(fu);
+  }
+  saveFollowups(followups);
+  renderFollowupTable();
+  closeFollowupForm();
+  showToast('✅ Follow-up disimpan');
+}
+function markFollowupDone(id) {
+  var followups = getFollowups().map(function(f) { return f.id === id ? Object.assign({}, f, {status:'done'}) : f; });
+  saveFollowups(followups);
+  renderFollowupTable();
+  showToast('✅ Follow-up ditandai selesai');
+}
+function deleteFollowup(id) {
+  if (!confirm('Hapus follow-up ini?')) return;
+  saveFollowups(getFollowups().filter(function(f) { return f.id !== id; }));
+  renderFollowupTable();
+  showToast('🗑 Follow-up dihapus');
+}
+
+// ===== PROMO =====
+function getPromos() {
+  try { var d = JSON.parse(localStorage.getItem('apotek_pos_promos')); return Array.isArray(d) && d.length ? d : defaultPromos(); }
+  catch(e) { return defaultPromos(); }
+}
+function defaultPromos() {
+  return [
+    { id:'pr-1', nama:'Diskon Lebaran 2026', tipe:'persen', nilai:15, produk:'', mulai:'2026-06-15', selesai:'2026-07-15', deskripsi:'Diskon 15% untuk semua produk' },
+    { id:'pr-2', nama:'Bundling Imun', tipe:'bundle', nilai:5000, produk:'Vitamin C 500mg', mulai:'2026-06-20', selesai:'2026-08-20', deskripsi:'Beli 2 gratis 1' }
+  ];
+}
+function savePromos(data) { localStorage.setItem('apotek_pos_promos', JSON.stringify(data)); }
+
+function getPromoStatus(p) {
+  var today = new Date().toISOString().split('T')[0];
+  if (p.mulai && p.mulai > today) return 'upcoming';
+  if (p.selesai && p.selesai < today) return 'done';
+  return 'active';
+}
+
+function renderPromoTable() {
+  var promos = getPromos();
+  var active = 0, upcoming = 0, done = 0;
+  promos.forEach(function(p) {
+    var s = getPromoStatus(p);
+    if (s === 'active') active++;
+    else if (s === 'upcoming') upcoming++;
+    else done++;
+  });
+  document.getElementById('promo-active-count').textContent = active;
+  document.getElementById('promo-upcoming-count').textContent = upcoming;
+  document.getElementById('promo-done-count').textContent = done;
+
+  var statusMap = {
+    active: { cls:'bg-green-100 text-green-700', lbl:'Aktif' },
+    upcoming: { cls:'bg-blue-100 text-blue-700', lbl:'Akan Datang' },
+    done: { cls:'bg-gray-100 text-gray-500', lbl:'Selesai' }
+  };
+  var tbody = document.getElementById('promo-table-body');
+  tbody.innerHTML = promos.map(function(p) {
+    var status = getPromoStatus(p);
+    var s = statusMap[status] || statusMap.done;
+    var tipeLabel = p.tipe === 'persen' ? p.nilai + '%' : p.tipe === 'nominal' ? 'Rp ' + (p.nilai||0).toLocaleString('id') : 'Bundling';
+    return '<tr class="row-hover cursor-pointer" onclick="openPromoForm(\'' + p.id + '\')">'
+      + '<td class="px-4 py-3 font-medium text-xs">' + escHtml(p.nama) + '</td>'
+      + '<td class="px-4 py-3 text-xs">' + (p.tipe==='persen'?'% Diskon':p.tipe==='nominal'?'Rp Diskon':'Bundling') + '</td>'
+      + '<td class="px-4 py-3 font-mono text-xs">' + escHtml(tipeLabel) + '</td>'
+      + '<td class="px-4 py-3 text-xs">' + (p.produk||'Semua') + '</td>'
+      + '<td class="px-4 py-3 text-xs">' + escHtml(p.mulai||'') + ' s/d ' + escHtml(p.selesai||'') + '</td>'
+      + '<td class="px-4 py-3 text-center"><span class="text-[10px] ' + s.cls + ' px-2 py-0.5 rounded-full font-medium">' + s.lbl + '</span></td>'
+      + '<td class="px-4 py-3 text-right">'
+      + '<button onclick="event.stopPropagation();deletePromo(\'' + p.id + '\')" class="text-red-500 hover:underline text-xs">Hapus</button>'
+      + '</td></tr>';
+  }).join('');
+}
+
+function openPromoForm(id) {
+  document.getElementById('promo-modal').classList.remove('hidden');
+  // Populate product list from ProductDB
+  try {
+    var products = window.ProductDB ? window.ProductDB.getAll() : [];
+    var prodOpts = '<option value="">Semua Produk</option>' + products.map(function(p) { return '<option>' + escHtml(p.nama_dagang) + '</option>'; }).join('');
+    document.getElementById('promo-produk').innerHTML = prodOpts;
+  } catch(e) {}
+  if (id) {
+    var p = getPromos().find(function(x) { return x.id === id; });
+    if (p) {
+      document.getElementById('promo-nama').value = p.nama;
+      document.getElementById('promo-tipe').value = p.tipe;
+      document.getElementById('promo-nilai').value = p.nilai;
+      document.getElementById('promo-produk').value = p.produk || '';
+      document.getElementById('promo-mulai').value = p.mulai || '';
+      document.getElementById('promo-selesai').value = p.selesai || '';
+      document.getElementById('promo-deskripsi').value = p.deskripsi || '';
+      document.getElementById('promo-edit-id').value = p.id;
+      document.getElementById('promo-form-title').textContent = 'Edit Promo';
+    }
+  } else {
+    document.getElementById('promo-nama').value = '';
+    document.getElementById('promo-tipe').value = 'persen';
+    document.getElementById('promo-nilai').value = '';
+    document.getElementById('promo-produk').value = '';
+    document.getElementById('promo-mulai').value = '';
+    document.getElementById('promo-selesai').value = '';
+    document.getElementById('promo-deskripsi').value = '';
+    document.getElementById('promo-edit-id').value = '';
+    document.getElementById('promo-form-title').textContent = 'Tambah Promo';
+  }
+}
+function closePromoForm() { document.getElementById('promo-modal').classList.add('hidden'); }
+
+function savePromo() {
+  var nama = document.getElementById('promo-nama').value.trim();
+  if (!nama) { showToast('⚠️ Nama promo wajib diisi'); return; }
+  var editId = document.getElementById('promo-edit-id').value;
+  var p = {
+    id: editId || 'pr-' + Date.now(),
+    nama: nama,
+    tipe: document.getElementById('promo-tipe').value,
+    nilai: parseInt(document.getElementById('promo-nilai').value) || 0,
+    produk: document.getElementById('promo-produk').value,
+    mulai: document.getElementById('promo-mulai').value,
+    selesai: document.getElementById('promo-selesai').value,
+    deskripsi: document.getElementById('promo-deskripsi').value.trim()
+  };
+  var promos = getPromos();
+  if (editId) {
+    promos = promos.map(function(x) { return x.id === editId ? p : x; });
+  } else {
+    promos.unshift(p);
+  }
+  savePromos(promos);
+  renderPromoTable();
+  closePromoForm();
+  showToast('✅ Promo disimpan');
+}
+function deletePromo(id) {
+  if (!confirm('Hapus promo ini?')) return;
+  savePromos(getPromos().filter(function(p) { return p.id !== id; }));
+  renderPromoTable();
+  showToast('🗑 Promo dihapus');
+}
+
+// ===== SEND WA =====
+function openSendWA(templateId) {
+  document.getElementById('sendwa-modal').classList.remove('hidden');
+  document.getElementById('sendwa-nomor').value = '';
+  document.getElementById('sendwa-nama').value = '';
+  document.getElementById('sendwa-obat').value = '';
+  document.getElementById('sendwa-dosis').value = '';
+  updateAllTemplateSelects();
+  if (templateId) document.getElementById('sendwa-template').value = templateId;
+  onSendWATemplateChange();
+}
+
+function closeSendWA() { document.getElementById('sendwa-modal').classList.add('hidden'); }
+
+function onSendWATemplateChange() {
+  var templateId = document.getElementById('sendwa-template').value;
+  var fields = document.getElementById('sendwa-fields');
+  var preview = document.getElementById('sendwa-preview');
+  if (templateId) {
+    fields.classList.remove('hidden');
+    var t = getTemplates().find(function(x) { return x.id === templateId; });
+    if (t) updateSendWAPreview(t.pesan);
+  } else {
+    fields.classList.add('hidden');
+    preview.textContent = 'Pilih template untuk melihat preview...';
+  }
+}
+
+function updateSendWAPreview(pesan) {
+  var nama = document.getElementById('sendwa-nama').value || '{nama_pelanggan}';
+  var obat = document.getElementById('sendwa-obat').value || '{nama_obat}';
+  var dosis = document.getElementById('sendwa-dosis').value || '{dosis}';
+  var preview = substituteVars(pesan||'', { nama_pelanggan:nama, nama_obat:obat, dosis:dosis });
+  document.getElementById('sendwa-preview').textContent = preview;
+}
+
+// Live preview updates on input
+document.addEventListener('DOMContentLoaded', function() {
+  var namaEl = document.getElementById('sendwa-nama');
+  var obatEl = document.getElementById('sendwa-obat');
+  var dosisEl = document.getElementById('sendwa-dosis');
+  function refreshPreview() {
+    var templateId = document.getElementById('sendwa-template').value;
+    if (templateId) {
+      var t = getTemplates().find(function(x) { return x.id === templateId; });
+      if (t) updateSendWAPreview(t.pesan);
+    }
+  }
+  if (namaEl) namaEl.addEventListener('input', refreshPreview);
+  if (obatEl) obatEl.addEventListener('input', refreshPreview);
+  if (dosisEl) dosisEl.addEventListener('input', refreshPreview);
+});
+
+function doSendWA() {
+  var nomor = (document.getElementById('sendwa-nomor').value || '').replace(/[^0-9]/g, '');
+  if (!nomor) { showToast('⚠️ Nomor WA wajib diisi'); return; }
+
+  var templateId = document.getElementById('sendwa-template').value;
+  var nama = document.getElementById('sendwa-nama').value || 'Pelanggan';
+  var obat = document.getElementById('sendwa-obat').value || '-';
+  var dosis = document.getElementById('sendwa-dosis').value || '-';
+  var pesan = '';
+
+  if (templateId) {
+    var t = getTemplates().find(function(x) { return x.id === templateId; });
+    if (t) {
+      pesan = substituteVars(t.pesan, { nama_pelanggan:nama, nama_obat:obat, dosis:dosis });
+    }
+  }
+  if (!pesan) pesan = document.getElementById('sendwa-preview').textContent || 'Halo ' + nama + '!';
+
+  var wa = nomor;
+  if (!wa.startsWith('62')) wa = '62' + wa.replace(/^0+/, '');
+  var waUrl = 'https://wa.me/' + wa + '?text=' + encodeURIComponent(pesan);
+
+  // Try server API first, fallback to wa.me
+  fetch('http://localhost:8000/api/send-wa', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ number: wa, message: pesan })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.success) {
+      showToast('✅ WA terkirim via server');
+    } else {
+      window.open(waUrl, '_blank');
+      showToast('📱 Membuka WhatsApp...');
+    }
+  }).catch(function() {
+    window.open(waUrl, '_blank');
+    showToast('📱 Server WA offline — membuka wa.me');
+  });
+
+  closeSendWA();
+}
+
+function sendFollowupWA(fuId) {
+  var f = getFollowups().find(function(x) { return x.id === fuId; });
+  if (!f) return;
+  document.getElementById('sendwa-nomor').value = f.nowa;
+  document.getElementById('sendwa-nama').value = f.pelanggan;
+  document.getElementById('sendwa-obat').value = f.obat;
+  updateAllTemplateSelects();
+  var fuTemplateSel = document.getElementById('fu-template');
+  var tplId = '';
+  if (fuTemplateSel) tplId = fuTemplateSel.value;
+  if (tplId) document.getElementById('sendwa-template').value = tplId;
+  onSendWATemplateChange();
+  document.getElementById('sendwa-modal').classList.remove('hidden');
+}
+
+// ===== INIT =====
+(function init() {
+  renderTemplateTable();
+  renderFollowupTable();
+  renderPromoTable();
+  // Default to template tab visible
+  switchTab('template');
+})();
+</script>
+
+<div style="text-align:center;padding:8px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb">Powered by <b>Digicraft</b></div></body>
+</html>

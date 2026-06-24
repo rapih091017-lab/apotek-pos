@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Login — Apotek POS</title>
+<script>tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#15803D',secondary:'#22C55E','orange-accent':'#FF5A1F','dashboard-gray':'#F4F5F7'},animation:{ripple:'ripple 3s linear infinite',orbit:'orbit 20s linear infinite',pulse2:'pulse2 2s ease-in-out infinite',float:'float 6s ease-in-out infinite',fadeIn:'fadeIn 0.6s ease-out forwards',slideUp:'slideUp 0.6s ease-out forwards'},keyframes:{ripple:{'0%':{width:'0',height:'0',opacity:'0.3'},'100%':{width:'500px',height:'500px',opacity:'0'}},orbit:{'0%':{transform:'rotate(0deg) translateX(120px) rotate(0deg)'},'100%':{transform:'rotate(360deg) translateX(120px) rotate(-360deg)'}},pulse2:{'0%,100%':{opacity:'0.3'},'50%':{opacity:'0.6'}},float:{'0%,100%':{transform:'translateY(0)'},'50%':{transform:'translateY(-20px)'}},fadeIn:{'0%':{opacity:'0',transform:'translateY(20px)'},'100%':{opacity:'1',transform:'translateY(0)'}},slideUp:{'0%':{opacity:'0',transform:'translateY(40px)'},'100%':{opacity:'1',transform:'translateY(0)'}}}}}}</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .animate-delay-1{animation-delay:0.1s}.animate-delay-2{animation-delay:0.2s}.animate-delay-3{animation-delay:0.3s}.animate-delay-4{animation-delay:0.4s}.animate-delay-5{animation-delay:0.5s}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+  .fade-in{opacity:0;animation:fadeIn 0.6s ease-out forwards}
+  .slide-up{opacity:0;animation:slideUp 0.6s ease-out forwards}
+  .orbiting{position:absolute;animation:orbit 20s linear infinite}
+  .orbiting:nth-child(2){animation-delay:-5s;animation-duration:25s}
+  .orbiting:nth-child(3){animation-delay:-10s;animation-duration:30s;animation-direction:reverse}
+  .orbiting:nth-child(4){animation-delay:-15s;animation-duration:22s;animation-direction:reverse}
+  .ripple-effect{position:absolute;border-radius:50%;border:2px solid rgba(255,90,31,0.2);animation:ripple 3s linear infinite}
+  .ripple-effect:nth-child(2){animation-delay:1s}.ripple-effect:nth-child(3){animation-delay:2s}
+  input:focus{outline:none;box-shadow:0 0 0 2px #FF5A1F,0 0 20px rgba(255,90,31,0.15)}
+  .password-toggle{cursor:pointer;user-select:none}
+  @media (prefers-reduced-motion:reduce){.fade-in,.slide-up{opacity:1!important;animation:none!important}}
+  noscript .fade-in,noscript .slide-up{opacity:1!important;animation:none!important}
+</style>
+</head>
+<body class="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center overflow-hidden font-sans">
+
+<!-- Animated Background -->
+<div class="absolute inset-0 overflow-hidden pointer-events-none">
+  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+    <div class="ripple-effect"></div><div class="ripple-effect"></div><div class="ripple-effect"></div>
+  </div>
+  <div class="orbiting top-1/2 left-1/2" style="transform-origin:0 0">
+    <div class="w-8 h-8 -ml-4 -mt-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-lg">💊</div>
+  </div>
+  <div class="orbiting top-1/2 left-1/2" style="transform-origin:0 0">
+    <div class="w-10 h-10 -ml-5 -mt-5 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-xl">🏥</div>
+  </div>
+  <div class="orbiting top-1/2 left-1/2" style="transform-origin:0 0">
+    <div class="w-6 h-6 -ml-3 -mt-3 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-sm">➕</div>
+  </div>
+  <div class="orbiting top-1/2 left-1/2" style="transform-origin:0 0">
+    <div class="w-12 h-12 -ml-6 -mt-6 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-2xl">💚</div>
+  </div>
+</div>
+
+<!-- Main Container -->
+<div class="relative z-10 w-full max-w-5xl mx-4 grid md:grid-cols-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+
+  <!-- LEFT: Branding -->
+  <div class="hidden md:flex flex-col items-center justify-center p-12 bg-gradient-to-br from-green-50 to-orange-50 dark:from-green-950/40 dark:to-orange-950/40 relative overflow-hidden">
+    <div class="absolute top-10 left-10 w-20 h-20 bg-green-200 dark:bg-green-800/30 rounded-full blur-2xl animate-pulse2"></div>
+    <div class="absolute bottom-10 right-10 w-32 h-32 bg-orange-200 dark:bg-orange-800/20 rounded-full blur-3xl animate-pulse2 animate-delay-3"></div>
+
+    <div class="relative space-y-8 text-center">
+      <!-- Logo -->
+      <div class="slide-up mx-auto w-24 h-24 bg-gradient-to-br from-green-500 to-green-700 rounded-3xl flex items-center justify-center shadow-xl shadow-green-500/25 animate-float">
+        <span class="text-5xl">💊</span>
+      </div>
+
+      <div class="space-y-3">
+        <h1 class="slide-up animate-delay-1 text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+          Apotek<span class="text-orange-accent">POS</span>
+        </h1>
+        <p class="slide-up animate-delay-2 text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
+          Sistem POS & ERP Apotek modern. Kelola penjualan, stok, dan pelanggan dalam satu dashboard.
+        </p>
+      </div>
+
+      <!-- Features -->
+      <div class="slide-up animate-delay-3 grid grid-cols-2 gap-3 text-left">
+        <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 bg-white/60 dark:bg-gray-800/60 rounded-lg px-3 py-2"><span class="text-green-500">✓</span> Kasir Cepat</div>
+        <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 bg-white/60 dark:bg-gray-800/60 rounded-lg px-3 py-2"><span class="text-green-500">✓</span> Stok Real-time</div>
+        <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 bg-white/60 dark:bg-gray-800/60 rounded-lg px-3 py-2"><span class="text-green-500">✓</span> Struk Thermal</div>
+        <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 bg-white/60 dark:bg-gray-800/60 rounded-lg px-3 py-2"><span class="text-green-500">✓</span> WhatsApp Invoice</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Form -->
+  <div class="flex flex-col justify-center p-8 md:p-12">
+    <div class="md:hidden text-center mb-6">
+      <div class="mx-auto w-16 h-16 bg-gradient-to-br from-green-500 to-green-700 rounded-2xl flex items-center justify-center shadow-lg mb-3">
+        <span class="text-3xl">💊</span>
+      </div>
+      <h1 class="text-2xl font-extrabold text-gray-900 dark:text-white">Apotek<span class="text-orange-accent">POS</span></h1>
+    </div>
+
+    <div class="space-y-2 mb-6">
+      <h2 class="fade-in text-2xl font-bold text-gray-900 dark:text-white">Selamat Datang</h2>
+      <p class="fade-in animate-delay-1 text-sm text-gray-500 dark:text-gray-400">Masuk ke akun ApotekPOS Anda</p>
+    </div>
+
+    <form onsubmit="doLogin();return false" class="space-y-5">
+      <!-- Email -->
+      <div class="fade-in animate-delay-2 space-y-1.5">
+        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300">Email</label>
+        <div class="relative">
+          <input type="email" id="login-email" placeholder="admin@apotek.com" value="admin@apotek.com" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder:text-gray-400 transition-all duration-200">
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="fade-in animate-delay-3 space-y-1.5">
+        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300">Password</label>
+        <div class="relative">
+          <input type="password" id="login-password" placeholder="••••••••" value="admin123" class="w-full px-4 py-3 pr-12 bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder:text-gray-400 transition-all duration-200">
+          <button type="button" onclick="togglePassword()" class="password-toggle absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <svg id="eye-off" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18"/></svg>
+            <svg id="eye-on" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Role Selector -->
+      <div class="fade-in animate-delay-4">
+        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-2">Login Sebagai</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="selectRole('admin','Admin','A')" id="btn-admin" class="py-2.5 px-3 bg-green-600 text-white rounded-xl text-xs font-bold transition-all duration-200 hover:bg-green-700 flex items-center justify-center gap-1.5">
+            <span>🏥</span> Admin
+          </button>
+          <button type="button" onclick="selectRole('kasir','Kasir','K')" id="btn-kasir" class="py-2.5 px-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-medium transition-all duration-200 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center gap-1.5">
+            <span>💰</span> Kasir
+          </button>
+          <button type="button" onclick="selectRole('owner','Owner','O')" id="btn-owner" class="py-2.5 px-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-medium transition-all duration-200 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center gap-1.5">
+            <span>👑</span> Owner
+          </button>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="fade-in animate-delay-5 w-full py-3.5 bg-gradient-to-r from-orange-accent to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-orange-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/30 active:scale-[0.98]">
+        🔐 Masuk ke ApotekPOS
+      </button>
+    </form>
+
+    <!-- Hint -->
+    <p class="fade-in animate-delay-5 text-center text-[10px] text-gray-500 dark:text-gray-400 mt-6">
+      Demo: admin@apotek.com / admin123  ·  Powered by <b>Digicraft</b>
+    </p>
+
+    <!-- Theme Toggle -->
+    <button onclick="document.documentElement.classList.toggle('dark')" class="absolute top-4 right-4 p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition text-xs">🌓</button>
+  </div>
+</div>
+
+<script>
+var selectedRole = 'admin';
+var selectedUser = 'Admin';
+var selectedAvatar = 'A';
+
+function selectRole(role, user, avatar) {
+  selectedRole = role; selectedUser = user; selectedAvatar = avatar;
+  document.querySelectorAll('#btn-admin, #btn-kasir, #btn-owner').forEach(function(b) {
+    var isSelected = role === b.id.replace('btn-','');
+    b.className = isSelected
+      ? 'py-2.5 px-3 bg-orange-accent text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all duration-200 shadow-lg shadow-orange-500/25'
+      : 'py-2.5 px-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-medium transition-all duration-200 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center gap-1.5';
+  });
+}
+
+function togglePassword() {
+  var pw = document.getElementById('login-password');
+  var eye = document.getElementById('pw-eye');
+  if (!pw) return;
+  if (pw.type === 'password') { pw.type = 'text'; if (eye) eye.textContent = '🙈'; }
+  else { pw.type = 'password'; if (eye) eye.textContent = '🔒'; }
+}
+
+function doLogin() {
+  var email = document.getElementById('login-email').value.trim();
+  var password = document.getElementById('login-password').value;
+  if (!email) { alert('Email wajib diisi'); return; }
+  if (!password) { alert('Password wajib diisi'); return; }
+
+  var valid = {
+    'admin@apotek.com': { password:'admin123', role:'admin', user:'Dr. Andi Pratama, S.Farm., Apt.', avatar:'A' },
+    'owner@apotek.com': { password:'owner123', role:'owner', user:'Owner Apotek', avatar:'O' },
+    'kasir@apotek.com':  { password:'kasir123',  role:'kasir', user:'Budi Kasir', avatar:'K' }
+  };
+  var cred = valid[email];
+  if (!cred || cred.password !== password) {
+    alert('Email atau password salah.\n\nDemo:\nadmin@apotek.com / admin123\nkasir@apotek.com / kasir123');
+    return;
+  }
+
+  localStorage.setItem('apotek_pos_role', cred.role);
+  localStorage.setItem('apotek_pos_user', cred.user);
+  localStorage.setItem('apotek_pos_avatar', cred.avatar);
+  localStorage.setItem('apotek_pos_email', email);
+  localStorage.setItem('apotek_pos_logged_in', 'true');
+  if (!localStorage.getItem('apotek_pos_profile_name')) localStorage.setItem('apotek_pos_profile_name', 'Apotek Sehat Sentosa');
+  if (!localStorage.getItem('apotek_pos_outlet')) localStorage.setItem('apotek_pos_outlet', 'Outlet Pusat');
+  localStorage.removeItem('apotek_pos_shift_active');
+  window.location.href = 'unified_home.html';
+}
+</script>
+</body>
+</html>

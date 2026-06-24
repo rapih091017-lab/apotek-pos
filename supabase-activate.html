@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Aktivasi Supabase | Apotek POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#15803D','orange-accent':'#FF5A1F'}}}}</script>
+</head>
+<body class="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
+<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-lg">
+  <div class="text-center mb-6">
+    <span class="text-5xl">🔗</span>
+    <h1 class="text-2xl font-bold mt-2">Aktivasi Supabase</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Hubungkan Apotek POS ke database cloud</p>
+  </div>
+
+  <div id="status-connected" class="hidden bg-green-50 border border-green-200 rounded-xl p-4 mb-4 text-center">
+    <p class="text-green-700 font-bold text-lg">✅ Sudah Terhubung!</p>
+    <p class="text-green-600 text-sm mt-1" id="status-project">Project: —</p>
+    <button onclick="testConnection()" class="mt-3 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700">🔍 Tes Koneksi</button>
+    <div id="test-result" class="hidden mt-3 text-sm"></div>
+  </div>
+
+  <div id="form-activate">
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium mb-1">Supabase URL</label>
+        <input type="text" id="supabase-url" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono" value="https://atpfeizvqcvufrdigzfp.supabase.co">
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">Anon Key (publik)</label>
+        <input type="text" id="supabase-key" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0cGZlaXp2cWN2dWZyZGlnemZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzM4NzEsImV4cCI6MjA5NzcwOTg3MX0.9jVVLsP4rYnoj6xLrULvUB73asvJSFh9vUAgRPkdNy0">
+      </div>
+      <button onclick="activateSupabase()" class="w-full py-3 bg-orange-accent text-white rounded-xl font-bold text-sm hover:bg-orange-700 transition shadow-lg shadow-orange-500/25">
+        🔗 Aktifkan Supabase
+      </button>
+      <button onclick="autoFillFromEnv()" class="w-full py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:bg-gray-900">
+        📋 Auto-isi dari server (jika tersedia)
+      </button>
+    </div>
+  </div>
+
+  <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+    <p class="font-bold mb-1">⚠️ Sebelum aktivasi:</p>
+    <ol class="list-decimal pl-4 space-y-1">
+      <li>Buka <a href="https://supabase.com/dashboard" target="_blank" class="underline">Supabase Dashboard</a></li>
+      <li>Buka project → SQL Editor</li>
+      <li>Jalankan <code class="bg-amber-100 px-1 rounded">migration.sql</code></li>
+      <li>Jalankan <code class="bg-amber-100 px-1 rounded">seed.sql</code></li>
+      <li>Kembali ke halaman ini & klik Aktifkan</li>
+    </ol>
+  </div>
+
+  <div class="mt-4 text-center">
+    <a href="login.html" class="text-sm text-gray-500 hover:text-primary">← Kembali ke Login</a>
+  </div>
+</div>
+
+<script>
+// Try to load from /api/env
+async function autoFillFromEnv() {
+  try {
+    var resp = await fetch('/api/env');
+    var env = await resp.json();
+    if (env.SUPABASE_URL) document.getElementById('supabase-url').value = env.SUPABASE_URL;
+    if (env.SUPABASE_ANON_KEY) document.getElementById('supabase-key').value = env.SUPABASE_ANON_KEY;
+    showMsg('✅ Credentials terisi dari server');
+  } catch(e) { showMsg('⚠️ Server tidak tersedia — isi manual'); }
+}
+
+async function activateSupabase() {
+  var url = document.getElementById('supabase-url').value.trim();
+  var key = document.getElementById('supabase-key').value.trim();
+  if (!url || !key) { alert('URL dan Anon Key wajib diisi'); return; }
+  
+  // Save to localStorage
+  localStorage.setItem('apotek_pos_supabase_url', url);
+  localStorage.setItem('apotek_pos_supabase_key', key);
+  localStorage.setItem('apotek_pos_backend', 'supabase');
+  
+  // Test the SDK is loaded
+  if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+    try {
+      var client = window.supabase.createClient(url, key);
+      var { data, error } = await client.from('products').select('kode_produk').limit(1);
+      if (error) throw error;
+      document.getElementById('status-project').textContent = 'Project: ' + new URL(url).hostname + ' ✅ Tabel ready';
+    } catch(e) {
+      document.getElementById('status-project').textContent = '⚠️ ' + e.message;
+    }
+  }
+  
+  document.getElementById('form-activate').classList.add('hidden');
+  document.getElementById('status-connected').classList.remove('hidden');
+  showMsg('✅ Supabase diaktifkan! Data sekarang tersimpan di cloud.');
+}
+
+async function testConnection() {
+  var url = localStorage.getItem('apotek_pos_supabase_url');
+  var key = localStorage.getItem('apotek_pos_supabase_key');
+  var result = document.getElementById('test-result');
+  result.classList.remove('hidden');
+  result.textContent = 'Menguji...';
+  
+  try {
+    var client = window.supabase.createClient(url, key);
+    var tables = ['products', 'sales_transactions', 'purchase_orders', 'contacts'];
+    var counts = [];
+    for (var i = 0; i < tables.length; i++) {
+      var { count, error } = await client.from(tables[i]).select('*', {count:'exact', head:true});
+      counts.push(tables[i] + ': ' + (error ? '❌ ' + error.message : '✅ ' + count + ' rows'));
+    }
+    result.innerHTML = counts.join('<br>');
+    result.className = 'mt-3 text-sm bg-green-50 text-green-700 p-3 rounded-lg';
+  } catch(e) {
+    result.textContent = '❌ ' + e.message;
+    result.className = 'mt-3 text-sm bg-red-50 text-red-700 p-3 rounded-lg';
+  }
+}
+
+function showMsg(msg) {
+  var t = document.getElementById('toast');
+  if (!t) { var t = document.createElement('div'); t.id = 'toast'; t.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm z-50'; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.remove('hidden');
+  setTimeout(function() { t.classList.add('hidden'); }, 3000);
+}
+
+// Auto-check if already connected
+(function(){
+  var backend = localStorage.getItem('apotek_pos_backend');
+  if (backend === 'supabase') {
+    document.getElementById('form-activate').classList.add('hidden');
+    document.getElementById('status-connected').classList.remove('hidden');
+    document.getElementById('status-project').textContent = 'Project: ' + 
+      (localStorage.getItem('apotek_pos_supabase_url') || '').replace('https://','').split('.')[0];
+  }
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</body>
+</html>

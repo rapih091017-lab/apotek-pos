@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview — Persediaan | Apotek POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- FIX: Load Supabase SDK + bridge for Supabase integration -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-bridge.js"></script>
+<script src="js/product-schema.js"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { mono: ['Fira Code','Consolas','monospace'], sans: ['Fira Sans','Inter','system-ui','sans-serif'] },
+      colors: { 
+        primary:'#15803D', secondary:'#22C55E', accent:'#0369A1', 
+        surface:'#F0FDF4', 'text-primary':'#14532D', 'text-secondary':'#166534',
+        'dashboard-gray': '#F4F5F7', 'orange-accent': '#FF5A1F'
+      }
+    }
+  }
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Finexy Custom Styles & Dark Mode Fixes */
+  .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); }
+  .dark .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5); }
+  .row-hover:hover { background: #f9fafb; }
+  .dark .row-hover:hover { background: #1f2937; }
+  .nav-active { background: #111827; color: #ffffff; }
+  .dark .nav-active { background: #FF5A1F; color: #ffffff; }
+</style>
+
+<script>
+  // Dark Mode Logic
+  function toggleDarkMode() {
+    document.documentElement.classList.toggle('dark');
+    const isDark = document.documentElement.classList.contains('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeIcon(isDark);
+  }
+  
+  function updateThemeIcon(isDark) {
+    const sunIcon = document.getElementById('sun-icon');
+    const moonIcon = document.getElementById('moon-icon');
+    if(sunIcon && moonIcon) {
+        if(isDark) {
+            sunIcon.classList.remove('scale-100', 'opacity-100');
+            sunIcon.classList.add('scale-0', 'opacity-0');
+            moonIcon.classList.remove('scale-0', 'opacity-0');
+            moonIcon.classList.add('scale-100', 'opacity-100');
+        } else {
+            moonIcon.classList.remove('scale-100', 'opacity-100');
+            moonIcon.classList.add('scale-0', 'opacity-0');
+            sunIcon.classList.remove('scale-0', 'opacity-0');
+            sunIcon.classList.add('scale-100', 'opacity-100');
+        }
+    }
+  }
+
+  // Init theme
+  if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  window.addEventListener('DOMContentLoaded', () => {
+    updateThemeIcon(document.documentElement.classList.contains('dark'));
+  });
+</script>
+
+</head>
+<body class="bg-dashboard-gray dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors">
+
+<header class="sticky top-0 z-40 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 card-shadow">
+  <div class="flex items-center gap-3">
+    <span class="text-lg font-bold text-primary font-mono">💊 ApotekPOS</span>
+
+    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Persediaan</span>
+  </div>
+  <div class="flex items-center gap-3">
+    
+    <!-- Theme Toggle -->
+    <button onclick="toggleDarkMode()" class="group relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 bg-transparent text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+      <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 scale-0 opacity-0 transition-all absolute text-gray-400">
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+      </svg>
+      <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 scale-100 opacity-100 transition-all absolute text-gray-500 dark:text-gray-400">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2"></path>
+        <path d="M12 20v2"></path>
+        <path d="m4.93 4.93 1.41 1.41"></path>
+        <path d="m17.66 17.66 1.41 1.41"></path>
+        <path d="M2 12h2"></path>
+        <path d="M20 12h2"></path>
+        <path d="m6.34 17.66-1.41 1.41"></path>
+        <path d="m19.07 4.93-1.41 1.41"></path>
+      </svg>
+    </button>
+
+    <span class="text-xs text-gray-500 dark:text-gray-400">Outlet Pusat · Admin (Apoteker)</span>
+    <div class="w-8 h-8 rounded-full bg-orange-accent dark:bg-orange-600 flex items-center justify-center text-white text-sm font-bold">A</div>
+  </div>
+</header>
+
+<div class="flex h-[calc(100vh-56px)]">
+  <!-- SIDEBAR -->
+  <aside id="global-sidebar" class="w-56 transition-all duration-300 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col py-2 overflow-y-auto">
+    <div class="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Persediaan</div>
+    <button onclick="switchTab('stock')" id="nav-stock" class="nav-active flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium transition cursor-pointer">📊 Dashboard Stok</button>
+    <button onclick="switchTab('batch')" id="nav-batch" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">📦 Batch & FEFO</button>
+    <button onclick="switchTab('kartustok')" id="nav-kartustok" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">🟢 Kartu Stok</button>
+    <button onclick="switchTab('expiry')" id="nav-expiry" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">⏰ Kadaluarsa</button>
+    <button onclick="switchTab('opname')" id="nav-opname" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">📋 Stock Opname</button>
+    <button onclick="switchTab('defecta')" id="nav-defecta" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">⚠ Defecta</button>
+    <button onclick="switchTab('adjust')" id="nav-adjust" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">✏️ Adjustment</button>
+    <hr class="my-3 mx-3 border-gray-100">
+    <a href="preview_kasir.html" class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer"></a>
+  </aside>
+
+  <main class="flex-1 overflow-y-auto p-6">
+
+    <!-- ========== TAB: DASHBOARD STOK ========== -->
+    <div id="tab-stock">
+      <h1 class="text-xl font-bold mb-1">Dashboard Stok</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Ringkasan status persediaan seluruh outlet</p>
+
+      <div class="grid grid-cols-5 gap-3 mb-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow">
+          <p class="text-xs text-gray-500 dark:text-gray-400">Total SKU Aktif</p>
+          <p class="text-2xl font-bold font-mono text-gray-900 dark:text-gray-100">15</p>
+          <p class="text-xs text-secondary mt-1">14 dengan stok, 1 kosong</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow">
+          <p class="text-xs text-gray-500 dark:text-gray-400">Nilai Stok Total</p>
+          <p class="text-2xl font-bold font-mono text-primary">Rp 4.2jt</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Berdasarkan harga beli</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-red-200 card-shadow">
+          <p class="text-xs text-gray-500 dark:text-gray-400">Kadaluarsa &lt;30 hari</p>
+          <p class="text-2xl font-bold font-mono text-red-600">3 batch</p>
+          <p class="text-xs text-red-500 mt-1">Butuh tindakan segera</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-amber-200 card-shadow">
+          <p class="text-xs text-gray-500 dark:text-gray-400">Hampir Kadaluarsa</p>
+          <p class="text-2xl font-bold font-mono text-amber-600">8 batch</p>
+          <p class="text-xs text-amber-500 mt-1">30-90 hari tersisa</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-amber-200 card-shadow">
+          <p class="text-xs text-gray-500 dark:text-gray-400">Butuh Reorder</p>
+          <p class="text-2xl font-bold font-mono text-amber-600" id="defecta-count">4</p>
+          <p class="text-xs text-amber-500 mt-1">Di bawah stok minimum</p>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <div class="flex items-center gap-3 p-3 border-b border-gray-100">
+          <div class="relative flex-1"><svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg><input type="text" placeholder="Cari produk..." class="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none"></div>
+          <select class="py-2 px-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer"><option>Semua Status</option><option>Stok Menipis</option><option>Stok Habis</option><option>Stok Aman</option></select>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Kode</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Nama Produk</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Kategori</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Satuan</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Stok Total</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Stok Min</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Status</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Batch</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Aksi</th></tr></thead>
+            <tbody id="inventory-table-body" class="divide-y divide-gray-100">
+              <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">PROD-001</td><td class="px-4 py-3 font-medium">Paracetamol 500mg</td><td class="px-4 py-3 text-gray-500 dark:text-gray-400">Obat Bebas</td><td class="px-4 py-3">Tablet</td><td class="px-4 py-3 text-right font-mono font-semibold">45</td><td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">10</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Aman</span></td><td class="px-4 py-3 text-center font-mono">3</td><td class="px-4 py-3 text-right"><button onclick="switchTab('batch')" class="text-accent hover:underline text-xs">Batch</button> <button onclick="switchTab('kartustok')" class="text-accent hover:underline text-xs ml-1">Kartu Stok</button></td></tr>
+              <tr class="row-hover cursor-pointer bg-amber-50"><td class="px-4 py-3 font-mono text-xs">PROD-006</td><td class="px-4 py-3 font-medium">Cetirizine 10mg</td><td class="px-4 py-3 text-gray-500 dark:text-gray-400">Obat Bebas</td><td class="px-4 py-3">Tablet</td><td class="px-4 py-3 text-right font-mono font-semibold text-amber-600">2</td><td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">10</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⚠ Menipis</span></td><td class="px-4 py-3 text-center font-mono">1</td><td class="px-4 py-3 text-right"><button onclick="switchTab('batch')" class="text-accent hover:underline text-xs">Batch</button></td></tr>
+              <tr class="row-hover cursor-pointer bg-red-50"><td class="px-4 py-3 font-mono text-xs">PROD-009</td><td class="px-4 py-3 font-medium">Omeprazole 20mg</td><td class="px-4 py-3 text-gray-500 dark:text-gray-400">Obat Keras</td><td class="px-4 py-3">Kapsul</td><td class="px-4 py-3 text-right font-mono font-semibold text-red-600">0</td><td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">5</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">❌ Habis</span></td><td class="px-4 py-3 text-center font-mono">0</td><td class="px-4 py-3 text-right"><button onclick="switchTab('defecta')" class="text-accent hover:underline text-xs">PO</button></td></tr>
+              <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">PROD-005</td><td class="px-4 py-3 font-medium">Vitamin C 500mg</td><td class="px-4 py-3 text-gray-500 dark:text-gray-400">Vitamin</td><td class="px-4 py-3">Tablet</td><td class="px-4 py-3 text-right font-mono font-semibold">60</td><td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">0</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">Aman</span></td><td class="px-4 py-3 text-center font-mono">2</td><td class="px-4 py-3 text-right"><button onclick="switchTab('batch')" class="text-accent hover:underline text-xs">Batch</button></td></tr>
+              <tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">PROD-002</td><td class="px-4 py-3 font-medium">Amoxicillin 500mg</td><td class="px-4 py-3 text-gray-500 dark:text-gray-400">Obat Keras</td><td class="px-4 py-3">Kapsul</td><td class="px-4 py-3 text-right font-mono font-semibold">15</td><td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">20</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⚠ Menipis</span></td><td class="px-4 py-3 text-center font-mono">1</td><td class="px-4 py-3 text-right"><button onclick="switchTab('batch')" class="text-accent hover:underline text-xs">Batch</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== TAB: BATCH & FEFO ========== -->
+    <div id="tab-batch" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Batch & FEFO</h1><p class="text-sm text-gray-500 dark:text-gray-400">Kelola batch per produk — FEFO otomatis memilih batch expiry terdekat</p></div>
+        <div class="relative"><svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg><input type="text" placeholder="Cari produk..." class="w-64 pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none"></div>
+      </div>
+
+      <div class="mb-4 text-sm font-medium">🔍 Detail Batch: <span class="text-primary">Paracetamol 500mg</span> <span class="text-gray-500 dark:text-gray-400">(PROD-000001)</span></div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow mb-4">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Nomor Batch</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Expiry</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Stok Saat Ini</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Stok Awal</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Asal Faktur</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Hari Tersisa</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Status</th></tr></thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr class="row-hover expiry-safe">
+                <td class="px-4 py-3 font-mono font-medium">BN-2026-018</td><td class="px-4 py-3">15 Des 2028</td><td class="px-4 py-3 text-right font-mono font-semibold">25</td><td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">100</td><td class="px-4 py-3 font-mono text-xs">FK-2026-0042</td>
+                <td class="px-4 py-3 text-center"><span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">905 hari</span></td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">✅ Aman</span></td>
+              </tr>
+              <tr class="row-hover expiry-safe">
+                <td class="px-4 py-3 font-mono font-medium">BN-2026-010</td><td class="px-4 py-3">20 Mar 2028</td><td class="px-4 py-3 text-right font-mono font-semibold">15</td><td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">50</td><td class="px-4 py-3 font-mono text-xs">FK-2026-0035</td>
+                <td class="px-4 py-3 text-center"><span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">640 hari</span></td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">✅ Aman</span></td>
+              </tr>
+              <tr class="row-hover expiry-critical">
+                <td class="px-4 py-3 font-mono font-medium">BN-2025-002</td><td class="px-4 py-3">01 Jul 2026</td><td class="px-4 py-3 text-right font-mono font-semibold text-red-600">5</td><td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">30</td><td class="px-4 py-3 font-mono text-xs">FK-2025-0051</td>
+                <td class="px-4 py-3 text-center"><span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">12 hari</span></td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">❌ Kritis</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-sm">
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-full bg-green-200 flex items-center justify-center flex-shrink-0 text-lg">🔄</div>
+          <div>
+            <h3 class="font-semibold text-green-900 mb-1">Urutan FEFO (First Expired First Out)</h3>
+            <p class="text-green-800">Saat sell-out, sistem otomatis memilih:</p>
+            <ol class="list-decimal ml-5 mt-1 text-green-800 space-y-0.5">
+              <li><strong>BN-2025-002</strong> — Expiry 01 Jul 2026 (stok 5) ← <span class="text-red-600 font-semibold">diambil duluan</span></li>
+              <li>BN-2026-010 — Expiry 20 Mar 2028 (stok 15)</li>
+              <li>BN-2026-018 — Expiry 15 Des 2028 (stok 25)</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== TAB: KARTU STOK ========== -->
+    <div id="tab-kartustok" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Kartu Stok</h1><p class="text-sm text-gray-500 dark:text-gray-400">Riwayat lengkap mutasi stok per produk</p></div>
+      </div>
+
+      <div class="mb-4 text-sm font-medium">📋 Produk: <span class="text-primary">Paracetamol 500mg</span> <span class="text-gray-500 dark:text-gray-400">(PROD-000001)</span></div>
+
+      <div class="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 mb-3">
+        <div><label class="text-xs font-medium">Dari</label><input type="date" value="2026-06-01" class="ml-1 px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs"></div>
+        <div><label class="text-xs font-medium">Sampai</label><input type="date" value="2026-06-19" class="ml-1 px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs"></div>
+        <select class="py-1.5 px-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs cursor-pointer"><option>Semua Tipe</option><option>Keluar</option><option>Masuk</option><option>Opname</option><option>Adjustment</option></select>
+        <button class="px-3 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded text-xs font-medium hover:bg-orange-700 transition cursor-pointer">Filter</button>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Waktu</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Tipe</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Batch</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Qty</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Stok Sblm</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Stok Ssdh</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Referensi</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">User</th></tr></thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr class="row-hover"><td class="px-4 py-3 text-xs">19 Jun 14:32</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold">Keluar</span></td><td class="px-4 py-3 font-mono text-xs">BN-2025-002</td><td class="px-4 py-3 font-mono text-xs">-2 Strip (20 tab)</td><td class="px-4 py-3 text-right font-mono">25</td><td class="px-4 py-3 text-right font-mono font-semibold">5</td><td class="px-4 py-3 font-mono text-xs">#TRX-042</td><td class="px-4 py-3 text-xs">Kasir A</td></tr>
+              <tr class="row-hover"><td class="px-4 py-3 text-xs">18 Jun 09:15</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Masuk</span></td><td class="px-4 py-3 font-mono text-xs">BN-2026-010</td><td class="px-4 py-3 font-mono text-xs">+5 Box (500 tab)</td><td class="px-4 py-3 text-right font-mono">0</td><td class="px-4 py-3 text-right font-mono font-semibold">500</td><td class="px-4 py-3 font-mono text-xs">FK-2026-0035</td><td class="px-4 py-3 text-xs">Admin</td></tr>
+              <tr class="row-hover"><td class="px-4 py-3 text-xs">17 Jun 16:00</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">Opname</span></td><td class="px-4 py-3 font-mono text-xs">BN-2025-002</td><td class="px-4 py-3 font-mono text-xs">-3 Tablet</td><td class="px-4 py-3 text-right font-mono">30</td><td class="px-4 py-3 text-right font-mono font-semibold">27</td><td class="px-4 py-3 font-mono text-xs">OPN-003</td><td class="px-4 py-3 text-xs">Dr. Andi</td></tr>
+              <tr class="row-hover"><td class="px-4 py-3 text-xs">16 Jun 11:20</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold">Keluar</span></td><td class="px-4 py-3 font-mono text-xs">BN-2026-018</td><td class="px-4 py-3 font-mono text-xs">-5 Strip (50 tab)</td><td class="px-4 py-3 text-right font-mono">300</td><td class="px-4 py-3 text-right font-mono font-semibold">250</td><td class="px-4 py-3 font-mono text-xs">#TRX-035</td><td class="px-4 py-3 text-xs">Kasir B</td></tr>
+              <tr class="row-hover"><td class="px-4 py-3 text-xs">15 Jun 08:00</td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">Adjust</span></td><td class="px-4 py-3 font-mono text-xs">BN-2025-002</td><td class="px-4 py-3 font-mono text-xs">-2 Tablet (Rusak)</td><td class="px-4 py-3 text-right font-mono">32</td><td class="px-4 py-3 text-right font-mono font-semibold">30</td><td class="px-4 py-3 font-mono text-xs">ADJ-001</td><td class="px-4 py-3 text-xs">Dr. Andi</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== TAB: KADALUARSA ========== -->
+    <div id="tab-expiry" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Monitor Kadaluarsa</h1><p class="text-sm text-gray-500 dark:text-gray-400">Batch dengan stok > 0 dan akan/sudah kadaluarsa</p></div>
+        <select class="py-2 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer"><option>90 hari ke depan</option><option>60 hari</option><option>30 hari</option></select>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <div class="p-3 border-b border-gray-100">
+          <div class="flex gap-4 text-sm">
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-500"></span> Kritis (&lt;30 hari): <strong class="font-mono">3 batch</strong></span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-amber-500"></span> Hampir (30-90): <strong class="font-mono">8 batch</strong></span>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Produk</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Batch</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Expiry</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Stok</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Nilai Stok</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Hari Tersisa</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Status</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Aksi</th></tr></thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr class="expiry-critical"><td class="px-4 py-3 font-medium">Amoxicillin 500mg</td><td class="px-4 py-3 font-mono text-xs">BN-2025-002</td><td class="px-4 py-3">01 Jul 2026</td><td class="px-4 py-3 text-right font-mono text-red-600 font-semibold">5</td><td class="px-4 py-3 text-right font-mono">Rp 60.000</td><td class="px-4 py-3 text-center"><span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">12 hari</span></td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">❌ Kritis</span></td><td class="px-4 py-3 text-right"><button onclick="switchTab('adjust')" class="text-accent hover:underline text-xs">Adjust</button></td></tr>
+              <tr class="expiry-critical"><td class="px-4 py-3 font-medium">Cetirizine 10mg</td><td class="px-4 py-3 font-mono text-xs">BN-2025-004</td><td class="px-4 py-3">05 Jul 2026</td><td class="px-4 py-3 text-right font-mono text-red-600 font-semibold">2</td><td class="px-4 py-3 text-right font-mono">Rp 7.000</td><td class="px-4 py-3 text-center"><span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">16 hari</span></td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">❌ Kritis</span></td><td class="px-4 py-3 text-right"><button onclick="switchTab('adjust')" class="text-accent hover:underline text-xs">Adjust</button></td></tr>
+              <tr class="expiry-warn"><td class="px-4 py-3 font-medium">Vitamin C 500mg</td><td class="px-4 py-3 font-mono text-xs">BN-2025-005</td><td class="px-4 py-3">15 Sep 2026</td><td class="px-4 py-3 text-right font-mono">45</td><td class="px-4 py-3 text-right font-mono">Rp 360.000</td><td class="px-4 py-3 text-center"><span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">88 hari</span></td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⚠ Hampir</span></td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Rencana Promo</button></td></tr>
+              <tr class="expiry-warn"><td class="px-4 py-3 font-medium">OBH Combi</td><td class="px-4 py-3 font-mono text-xs">BN-2025-008</td><td class="px-4 py-3">30 Sep 2026</td><td class="px-4 py-3 text-right font-mono">12</td><td class="px-4 py-3 text-right font-mono">Rp 216.000</td><td class="px-4 py-3 text-center"><span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">73 hari</span></td><td class="px-4 py-3 text-center"><span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⚠ Hampir</span></td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Rencana Promo</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mt-4 text-sm flex items-start gap-3">
+        <span class="text-2xl">💡</span>
+        <div><strong class="text-yellow-800">Rekomendasi:</strong> <span class="text-yellow-700">3 batch kritis sebaiknya segera di-adjustment atau dipromokan/diskon agar terjual sebelum kadaluarsa. Nilai stok berisiko: Rp 67.000.</span></div>
+      </div>
+    </div>
+
+    <!-- ========== TAB: STOCK OPNAME ========== -->
+    <div id="tab-opname" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Stock Opname</h1><p class="text-sm text-gray-500 dark:text-gray-400">Pencocokan stok fisik vs sistem dengan approval</p></div>
+        <button class="px-4 py-2 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition cursor-pointer card-shadow flex items-center gap-2" onclick="openOpnameDialog()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Buat Opname Baru
+        </button>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">No</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Tanggal</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Outlet</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-center">Status</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Dibuat oleh</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Aksi</th></tr></thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr class="row-hover cursor-pointer">
+              <td class="px-4 py-3 font-mono text-xs font-semibold">OPN-004</td><td class="px-4 py-3 text-xs">19 Jun 2026, 14:00</td><td class="px-4 py-3">Pusat</td>
+              <td class="px-4 py-3 text-center"><span class="text-[10px] bg-gray-100 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full font-medium">Draft</span></td>
+              <td class="px-4 py-3 text-xs">Dr. Andi</td>
+              <td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs mr-2">Lanjutkan</button><button class="text-red-500 hover:underline text-xs">Hapus</button></td>
+            </tr>
+            <tr class="row-hover cursor-pointer">
+              <td class="px-4 py-3 font-mono text-xs font-semibold">OPN-003</td><td class="px-4 py-3 text-xs">15 Jun 2026, 09:30</td><td class="px-4 py-3">Pusat</td>
+              <td class="px-4 py-3 text-center"><span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">✅ Disetujui</span></td>
+              <td class="px-4 py-3 text-xs">Dr. Andi</td>
+              <td class="px-4 py-3 text-right"><button onclick="openOpnameDetail()" class="text-accent hover:underline text-xs">Lihat Detail</button></td>
+            </tr>
+            <tr class="row-hover cursor-pointer">
+              <td class="px-4 py-3 font-mono text-xs font-semibold">OPN-002</td><td class="px-4 py-3 text-xs">01 Jun 2026, 10:00</td><td class="px-4 py-3">Pusat</td>
+              <td class="px-4 py-3 text-center"><span class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">❌ Ditolak</span></td>
+              <td class="px-4 py-3 text-xs">Owner</td>
+              <td class="px-4 py-3 text-right"><button onclick="openOpnameDetail()" class="text-accent hover:underline text-xs">Lihat</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== TAB: DEFECTA ========== -->
+    <div id="tab-defecta" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div><h1 class="text-xl font-bold">Defecta</h1><p class="text-sm text-gray-500 dark:text-gray-400">Produk di bawah stok minimum — dengan lead time & rata-rata penjualan harian untuk kalkulasi urgency</p></div>
+        <button onclick="generatePOFromDefecta()" class="px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:brightness-95 transition cursor-pointer card-shadow flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 6h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+          Generate PO (4 item terpilih)
+        </button>
+      </div>
+
+       <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left"><th class="px-3 py-3 w-10"><input type="checkbox" class="rounded"></th><th class="px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs">Kode</th><th class="px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs">Produk</th><th class="px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs text-right">Stok</th><th class="px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs text-right">Min</th><th class="px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs text-right">Kurang</th><th class="px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs text-center">Rata²/hari</th><th class="px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs text-center">Habis Dlm</th><th class="px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs">Supplier</th><th class="px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs text-center">Lead Time</th><th class="px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs text-center">Urgency</th><th class="px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs text-right">Estimasi</th></tr></thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr class="row-hover bg-red-50"><td class="px-3 py-3"><!-- defecta rows now dynamic — see renderDefecta() --><td class="px-3 py-3 font-medium text-xs">Omeprazole</td><td class="px-3 py-3 text-right font-mono text-red-600 font-semibold text-xs">0</td><td class="px-3 py-3 text-right text-xs">5</td><td class="px-3 py-3 text-right font-mono text-red-600 font-semibold text-xs">5</td><td class="px-3 py-3 text-center font-mono text-xs">1.5</td><td class="px-3 py-3 text-center font-mono text-red-600 font-bold text-xs">0 hr</td><td class="px-3 py-3 text-xs">Indofarma</td><td class="px-3 py-3 text-center font-mono text-xs">5 hr</td><td class="px-3 py-3 text-center"><span class="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold">SEKARANG</span></td><td class="px-3 py-3 text-right font-mono text-xs">Rp 35rb</td></tr>
+              <tr class="row-hover bg-red-50"><td class="px-3 py-3"><input type="checkbox" class="rounded" checked></td><td class="px-3 py-3 font-mono text-xs">PROD-006</td><td class="px-3 py-3 font-medium text-xs">Cetirizine</td><td class="px-3 py-3 text-right font-mono text-amber-600 font-semibold text-xs">2</td><td class="px-3 py-3 text-right text-xs">10</td><td class="px-3 py-3 text-right font-mono text-red-600 font-semibold text-xs">8</td><td class="px-3 py-3 text-center font-mono text-xs">0.5</td><td class="px-3 py-3 text-center font-mono text-red-600 font-bold text-xs">4 hr</td><td class="px-3 py-3 text-xs">Kimia Farma</td><td class="px-3 py-3 text-center font-mono text-xs">5 hr</td><td class="px-3 py-3 text-center"><span class="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold">SEKARANG</span></td><td class="px-3 py-3 text-right font-mono text-xs">Rp 20rb</td></tr>
+              <tr class="row-hover bg-amber-50"><td class="px-3 py-3"><input type="checkbox" class="rounded"></td><td class="px-3 py-3 font-mono text-xs">PROD-002</td><td class="px-3 py-3 font-medium text-xs">Amoxicillin</td><td class="px-3 py-3 text-right font-mono text-amber-600 font-semibold text-xs">15</td><td class="px-3 py-3 text-right text-xs">20</td><td class="px-3 py-3 text-right font-mono text-amber-600 text-xs">5</td><td class="px-3 py-3 text-center font-mono text-xs">3</td><td class="px-3 py-3 text-center font-mono text-xs">5 hr</td><td class="px-3 py-3 text-xs">Kimia Farma</td><td class="px-3 py-3 text-center font-mono text-xs">3 hr</td><td class="px-3 py-3 text-center"><span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold">BESOK</span></td><td class="px-3 py-3 text-right font-mono text-xs">Rp 45rb</td></tr>
+              <tr class="row-hover"><td class="px-3 py-3"><input type="checkbox" class="rounded"></td><td class="px-3 py-3 font-mono text-xs">PROD-014</td><td class="px-3 py-3 font-medium text-xs">Procold</td><td class="px-3 py-3 text-right font-mono text-amber-600 font-semibold text-xs">5</td><td class="px-3 py-3 text-right text-xs">20</td><td class="px-3 py-3 text-right font-mono text-amber-600 text-xs">15</td><td class="px-3 py-3 text-center font-mono text-gray-400 text-xs">—</td><td class="px-3 py-3 text-center font-mono text-gray-400 text-xs">—</td><td class="px-3 py-3 text-xs">Anugrah Argon</td><td class="px-3 py-3 text-center font-mono text-gray-400 text-xs">—</td><td class="px-3 py-3 text-center"><span class="text-[10px] bg-gray-100 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded-full font-medium">PERIKSA</span></td><td class="px-3 py-3 text-right font-mono text-xs">Rp 30rb</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50 dark:bg-gray-900 text-sm">
+          <span class="text-gray-500 dark:text-gray-400">Total estimasi: <span class="font-mono font-semibold text-gray-900 dark:text-gray-100">Rp 130.000</span> (4 item) · Urgency: 🔴 2 · 🟠 1 · ⚪ 1</span>
+        </div>
+        <div class="px-4 py-2 bg-yellow-50 border-t border-yellow-100 text-xs text-yellow-700 flex items-start gap-2">
+          <span>⚠</span> <span><strong>PERIKSA</strong> = data rata-rata penjualan harian atau lead time supplier belum diisi. Isi di Master Data → Produk untuk kalkulasi otomatis.</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3 mt-4 text-xs">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-red-200 p-3">
+          <p class="font-semibold text-red-700 mb-1">🔴 SEKARANG</p>
+          <p class="text-red-600">Stok habis sebelum barang datang. Order sekarang juga.</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-amber-200 p-3">
+          <p class="font-semibold text-amber-700 mb-1">🟠 BESOK</p>
+          <p class="text-amber-600">Masih ada buffer tipis. Order besok masih aman.</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-blue-200 p-3">
+          <p class="font-semibold text-blue-700 mb-1">🔵 RENCANA</p>
+          <p class="text-blue-600">Stok di bawah minimum tapi lead time masih longgar.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== TAB: ADJUSTMENT ========== -->
+    <div id="tab-adjust" class="hidden">
+      <div class="max-w-xl">
+        <h1 class="text-xl font-bold mb-1">Stok Adjustment</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Koreksi stok manual untuk kerusakan, kehilangan, atau sample</p>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-4 card-shadow">
+          <div>
+            <label class="block text-xs font-medium mb-1">Produk <span class="text-red-500">*</span></label>
+            <select class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+              <option>Cari produk...</option><option selected>Paracetamol 500mg (PROD-000001)</option><option>Amoxicillin 500mg (PROD-000002)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium mb-1">Batch <span class="text-red-500">*</span></label>
+            <select class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+              <option selected>BN-2025-002 — Exp 01 Jul 2026 (Stok: 5 tab)</option>
+              <option>BN-2026-010 — Exp 20 Mar 2028 (Stok: 15 tab)</option>
+              <option>BN-2026-018 — Exp 15 Des 2028 (Stok: 25 tab)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium mb-1">Tipe Adjustment <span class="text-red-500">*</span></label>
+            <div class="flex gap-3">
+              <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="adj-tipe" checked class="text-primary"> <span class="text-sm">Kurang (stok berkurang)</span></label>
+              <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="adj-tipe" class="text-primary"> <span class="text-sm">Tambah (stok bertambah)</span></label>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium mb-1">Qty <span class="text-red-500">*</span></label>
+              <input type="number" value="3" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-accent outline-none">
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Stok saat ini: 5 tablet → setelah adjustment: 2 tablet</p>
+            </div>
+            <div>
+              <label class="block text-xs font-medium mb-1">Satuan</label>
+              <select class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+                <option selected>Tablet</option><option>Strip (10 tab)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium mb-1">Alasan <span class="text-red-500">*</span></label>
+            <select class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-pointer">
+              <option>Rusak / Pecah</option><option selected>Hilang / Tidak ditemukan</option><option>Sample / Diberikan gratis</option><option>Kadaluarsa</option><option>Lainnya...</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium mb-1">Catatan</label>
+            <textarea rows="2" placeholder="Keterangan tambahan..." class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-accent outline-none resize-none"></textarea>
+          </div>
+
+          <div class="flex gap-3 pt-2">
+            <button class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 transition cursor-pointer">Batal</button>
+            <button class="flex-1 py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition cursor-pointer card-shadow">💾 Simpan Adjustment</button>
+          </div>
+        </div>
+
+        <div class="mt-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <h3 class="font-semibold text-sm mb-2">Riwayat Adjustment Terakhir</h3>
+          <div class="space-y-2 text-xs">
+            <div class="flex justify-between py-1.5 border-b border-gray-50"><span>15 Jun 2026, 08:00</span><span class="text-red-600">-2 tablet (Rusak)</span><span>Batch BN-2025-002</span><span class="text-gray-500 dark:text-gray-400">Dr. Andi</span></div>
+            <div class="flex justify-between py-1.5 border-b border-gray-50"><span>10 Jun 2026, 11:30</span><span class="text-green-600">+10 tablet (Retur)</span><span>Batch BN-2026-018</span><span class="text-gray-500 dark:text-gray-400">Dr. Andi</span></div>
+            <div class="flex justify-between py-1.5"><span>05 Jun 2026, 16:00</span><span class="text-red-600">-1 botol (Pecah)</span><span>Batch BN-2025-008</span><span class="text-gray-500 dark:text-gray-400">Admin</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+      <!-- OPNAME PANEL -->
+      <div id="opname-panel" class="hidden animate-in">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-xl font-bold">📋 Stock Opname</h2>
+            <p class="text-sm text-gray-500">Sesuaikan sisa fisik stok produk dengan sistem.</p>
+          </div>
+          <button id="btn-submit-opname" onclick="submitOpname()" class="bg-primary hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium shadow-md transition">
+            💾 Simpan Hasil Opname
+          </button>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden card-shadow">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-sm">
+                <th class="px-4 py-3 text-gray-600 dark:text-gray-400">Kode</th>
+                <th class="px-4 py-3 text-gray-600 dark:text-gray-400">Produk</th>
+                <th class="px-4 py-3 text-center text-gray-600 dark:text-gray-400">Stok Sistem</th>
+                <th class="px-4 py-3 text-center text-gray-600 dark:text-gray-400">Fisik Nyata</th>
+              </tr>
+            </thead>
+            <tbody id="opname-table-body" class="divide-y divide-gray-100 text-sm">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+  </main>
+</div>
+
+<!-- ===== OPNAME DIALOG ===== -->
+<div id="opname-dialog" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col">
+    <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+      <h3 class="text-lg font-bold">Stock Opname — OPN-003 (Disetujui)</h3>
+      <button onclick="document.getElementById('opname-dialog').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-left sticky top-0"><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Kode</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Produk</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Stok Sistem</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Stok Fisik</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400 text-right">Selisih</th><th class="px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">Catatan</th></tr></thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr><td class="px-4 py-3 font-mono text-xs">PROD-001</td><td class="px-4 py-3">Paracetamol 500mg</td><td class="px-4 py-3 text-right font-mono">48</td><td class="px-4 py-3 text-right font-mono font-semibold">45</td><td class="px-4 py-3 text-right font-mono text-red-600 font-semibold">-3</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">3 tablet tidak ditemukan</td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">PROD-002</td><td class="px-4 py-3">Amoxicillin 500mg</td><td class="px-4 py-3 text-right font-mono">15</td><td class="px-4 py-3 text-right font-mono font-semibold">15</td><td class="px-4 py-3 text-right font-mono">0</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">Sesuai</td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">PROD-005</td><td class="px-4 py-3">Vitamin C 500mg</td><td class="px-4 py-3 text-right font-mono">58</td><td class="px-4 py-3 text-right font-mono font-semibold">60</td><td class="px-4 py-3 text-right font-mono text-green-600 font-semibold">+2</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">Kelebihan</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="p-4 border-t border-gray-100 flex justify-between items-center text-sm">
+      <span class="text-gray-500 dark:text-gray-400">4/15 produk diinput · 2 selisih ditemukan</span>
+      <span class="text-[10px] bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">✅ Disetujui — 15 Jun 2026</span>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-text-primary text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"></div>
+
+<script>
+function switchTab(tab) {
+  // Hide all tab contents
+  const allContents = document.querySelectorAll('[id^="tab-"]');
+  allContents.forEach(el => {
+      // Only hide if it's a direct tab content container
+      if(el.tagName === 'DIV' && el.parentElement.tagName !== 'TR') {
+          el.classList.add('hidden');
+      }
+  });
+  
+  // Show target content
+  const target = document.getElementById('tab-' + tab);
+  if(target) target.classList.remove('hidden');
+  
+  // Update Nav visual state
+  const allNavs = document.querySelectorAll('[id^="nav-"]');
+  allNavs.forEach(nav => {
+      // Remove active classes
+      nav.classList.remove('nav-active', 'bg-orange-accent', 'dark:bg-orange-600', 'text-white');
+      // Add inactive classes
+      nav.classList.add('text-gray-500', 'dark:text-gray-400', 'hover:bg-gray-50', 'dark:hover:bg-gray-900');
+  });
+  
+  // Set target nav active
+  const targetNav = document.getElementById('nav-' + tab);
+  if(targetNav) {
+      targetNav.classList.add('nav-active', 'bg-orange-accent', 'dark:bg-orange-600', 'text-white');
+      targetNav.classList.remove('text-gray-500', 'dark:text-gray-400', 'hover:bg-gray-50', 'dark:hover:bg-gray-900');
+  }
+}
+
+
+function openOpnameDialog() {
+  document.getElementById('opname-dialog').classList.remove('hidden');
+}
+
+function openOpnameDetail() {
+  document.getElementById('opname-dialog').classList.remove('hidden');
+}
+
+document.getElementById('opname-dialog').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.add('hidden');
+});
+
+// ===== INIT: read profile from localStorage =====
+(function(){const n=localStorage.getItem('apotek_pos_profile_name')||'ApotekPOS';const el=document.getElementById('module-header-name');if(el)el.textContent='💊 '+n;})();
+
+function generatePOFromDefecta() {
+  // FIX: Kirim data defecta lengkap, bukan cuma flag
+  var products = [];
+  try { products = JSON.parse(localStorage.getItem('apotek_products_master') || '[]'); } catch(e) {}
+  var defectaItems = [];
+  var checkboxes = document.querySelectorAll('#tab-defecta input[type="checkbox"]:checked');
+  if (checkboxes.length > 0) {
+    checkboxes.forEach(function(cb) {
+      var row = cb.closest('tr');
+      if (row) {
+        var kode = cb.dataset.kode || ((row.cells[1] || row.cells[0] || {}).textContent || '').trim();
+        var prod = products.find(function(p) { return (p.kode || p.id || '') === kode.trim(); });
+        if (prod) defectaItems.push({ kode: kode.trim(), nama: prod.nama_dagang || prod.nama || '', qty: Math.max(1, (prod.stok_minimum || 5) - (prod.stok || 0)), harga_beli: parseInt(prod.harga_beli) || 0, supplier: prod.supplier_nama || prod.produsen || '', stok: parseInt(prod.stok) || 0, stok_minimum: parseInt(prod.stok_minimum) || 5 });
+      }
+    });
+  }
+  if (!defectaItems.length) {
+    showToast('⚠️ Centang dulu produk yang mau di-PO');
+    return;
+  }
+  localStorage.setItem('apotek_pos_defecta_data', JSON.stringify(defectaItems));
+  localStorage.setItem('apotek_pos_open_defecta', '1');
+  localStorage.setItem('apotek_pos_open_defecta', '1');
+  try {
+    if (window.parent && window.parent !== window && window.parent.openModule) {
+      window.parent.openModule('preview_pembelian.html', 'Pembelian');
+      return;
+    }
+  } catch(e) {}
+  try {
+    window.parent.postMessage({ action: 'openModule', url: 'preview_pembelian.html', title: 'Pembelian' }, '*');
+  } catch(e) {}
+  setTimeout(function() {
+    window.location.href = 'preview_pembelian.html';
+  }, 200);
+}
+</script>
+
+<script>
+  function toggleSidebar() {
+      const sidebar = document.getElementById('global-sidebar');
+      const texts = sidebar.querySelectorAll('.nav-text');
+      const isCollapsed = sidebar.classList.contains('w-16');
+      
+      if(isCollapsed) {
+          sidebar.classList.remove('w-16');
+          sidebar.classList.add('w-56');
+          texts.forEach(t => t.classList.remove('hidden'));
+      } else {
+          sidebar.classList.remove('w-56');
+          sidebar.classList.add('w-16');
+          texts.forEach(t => t.classList.add('hidden'));
+      }
+  }
+</script>
+
+<script>
+  function comingSoon(feature) {
+      alert(`Fitur ${feature} sedang dalam tahap pengembangan dan akan terhubung ke Modul Kamera / Supabase di rilis selanjutnya.`);
+  }
+</script>
+
+<!-- DYNAMIC INVENTORY INJECTION -->
+<script>
+function renderPersediaan() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('apotek_products_master') || localStorage.getItem('products_master') || '[]');
+    if (raw && raw.length > 0) {
+      const tbody = document.getElementById('inventory-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = raw.map(p => {
+        const stok = Number(p.stok || p.stok_total || p.stock || 0);
+        const minStok = Number(p.stok_minimum || 5);
+        let badge = '<span class="px-2 py-1 text-xs font-medium rounded-md bg-green-100 text-green-700">Aman</span>';
+        let rowClass = 'hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-b border-gray-200 dark:border-gray-700';
+        
+        if (stok === 0) {
+          badge = '<span class="px-2 py-1 text-xs font-medium rounded-md bg-red-100 text-red-700 font-bold">Habis</span>';
+          rowClass += ' bg-red-50/50';
+        } else if (stok <= minStok) {
+          badge = '<span class="px-2 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-700 font-bold">Kritis</span>';
+        }
+
+        return `
+          <tr class="${rowClass}">
+            <td class="p-3">
+              <div class="font-medium text-sm text-gray-900 dark:text-gray-100">${p.nama_dagang || p.nama || p.name}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${p.kode || p.id}</div>
+            </td>
+            <td class="p-3 text-sm text-gray-600 dark:text-gray-300">${p.kategori || 'Obat'} / ${p.satuan || 'Pcs'}</td>
+            <td class="p-3 text-right">
+              <span class="font-mono text-sm font-semibold">${stok}</span>
+            </td>
+            <td class="p-3 text-right">
+              <span class="font-mono text-xs text-gray-500">${minStok}</span>
+            </td>
+            <td class="p-3 text-center">${badge}</td>
+            <td class="p-3 text-center">
+              <button class="text-accent hover:text-orange-accent p-1 transition" title="Riwayat Stok">
+                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+  } catch (e) {
+    console.error('Failed to load inventory from master', e);
+  }
+}
+
+// Logic Stock Opname
+function renderOpname() {
+  const raw = JSON.parse(localStorage.getItem('apotek_products_master') || localStorage.getItem('products_master') || '[]');
+  const tbody = document.getElementById('opname-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = raw.map(p => {
+    const stok = Number(p.stok || p.stok_total || p.stock || 0);
+    return `
+      <tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
+        <td class="px-4 py-3 font-mono text-gray-500">${p.kode || p.id}</td>
+        <td class="px-4 py-3 font-medium">${p.nama_dagang || p.nama}</td>
+        <td class="px-4 py-3 text-center font-mono bg-gray-50 dark:bg-gray-900/50">${stok}</td>
+        <td class="px-4 py-3 text-center">
+           <input type="number" id="opname-input-${p.kode || p.id}" class="w-20 px-2 py-1 border border-gray-300 rounded font-mono text-center" value="${stok}" min="0">
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function submitOpname() {
+  let raw = JSON.parse(localStorage.getItem('apotek_products_master') || localStorage.getItem('products_master') || '[]');
+  let changed = 0;
+  raw = raw.map(p => {
+    const id = p.kode || p.id;
+    const input = document.getElementById('opname-input-' + id);
+    if(input) {
+      const v = parseInt(input.value);
+      if(!isNaN(v) && v !== Number(p.stok)) {
+         p.stok = v;
+         changed++;
+      }
+    }
+    return p;
+  });
+  
+  if(changed > 0) {
+     const json = JSON.stringify(raw);
+     localStorage.setItem('apotek_products_master', json);
+     localStorage.setItem('products_master', json);
+     alert('✅ Berhasil menyesuaikan stok untuk ' + changed + ' produk.');
+     renderPersediaan();
+  } else {
+     alert('Tidak ada perubahan stok.');
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => { renderPersediaan(); renderOpname(); });
+</script>
+
+<!-- FIX: Adjustment save handler + dynamic forms -->
+<script>
+(function(){
+  // Adjustment save
+  var adjBtn = document.querySelector('#tab-adjust button');
+  if (adjBtn && adjBtn.textContent.includes('Simpan Adjustment')) {
+    adjBtn.onclick = function() {
+      var produk = document.querySelector('#tab-adjust select:first-of-type');
+      var tipe = document.querySelector('#tab-adjust input[type="radio"]:checked');
+      var qty = document.querySelector('#tab-adjust input[type="number"]');
+      var alasan = document.querySelector('#tab-adjust select:last-of-type');
+      var catatan = document.querySelector('#tab-adjust textarea');
+      
+      if (!produk || !qty || !qty.value) { showToast('⚠️ Isi produk dan qty'); return; }
+      
+      var mutations = [];
+      try { mutations = JSON.parse(localStorage.getItem('apotek_pos_stock_mutations') || '[]'); } catch(e) {}
+      mutations.unshift({
+        id: 'adj-'+Date.now(),
+        tanggal: new Date().toISOString().split('T')[0],
+        produk: produk.options[produk.selectedIndex].text,
+        tipe: (tipe && tipe.value) || 'adjustment',
+        qty: parseInt(qty.value) || 0,
+        alasan: alasan ? alasan.value : '',
+        catatan: catatan ? catatan.value : '',
+        created_at: new Date().toISOString()
+      });
+      localStorage.setItem('apotek_pos_stock_mutations', JSON.stringify(mutations));
+      showToast('✅ Adjustment tersimpan');
+    };
+  }
+  // Batch form — make Add Batch button work
+  var batchBtns = document.querySelectorAll('button');
+  batchBtns.forEach(function(b) {
+    if (b.textContent.includes('Tambah Batch') || b.textContent.includes('+ Batch')) {
+      b.onclick = function() {
+        var produk = prompt('Nama produk untuk batch:');
+        if (!produk) return;
+        var noBatch = prompt('Nomor batch:');
+        if (!noBatch) return;
+        var exp = prompt('Tanggal kadaluarsa (YYYY-MM-DD):');
+        if (!exp) return;
+        var qty = parseInt(prompt('Qty:')) || 0;
+        var batches = [];
+        try { batches = JSON.parse(localStorage.getItem('apotek_pos_batches') || '[]'); } catch(e) {}
+        batches.push({ id:'batch-'+Date.now(), produk:produk, nomor_batch:noBatch, tanggal_kadaluarsa:exp, qty:qty });
+        localStorage.setItem('apotek_pos_batches', JSON.stringify(batches));
+        showToast('✅ Batch ditambahkan');
+      };
+    }
+  });
+  function showToast(msg) {
+    var t = document.getElementById('toast');
+    if (!t) { alert(msg); return; }
+    t.textContent = msg; t.classList.remove('hidden');
+    setTimeout(function() { t.classList.add('hidden'); }, 2000);
+  }
+})();
+</script>
+<script>
+// ===== DYNAMIC DEFECTA RENDERER =====
+(function(){
+  var defectaTbody = document.querySelector('#tab-defecta tbody');
+  if (!defectaTbody) return;
+  defectaTbody.id = 'defecta-tbody';
+
+  window.renderDefecta = function() {
+    var products = [];
+    try { products = JSON.parse(localStorage.getItem('apotek_products_master') || '[]'); } catch(e) {}
+    // Fallback: if no localStorage data, use ProductDB
+    if (!products.length && window.ProductDB) products = ProductDB.getAllIncInactive ? ProductDB.getAllIncInactive() : ProductDB.getAll();
+
+    if (!products.length) {
+      defectaTbody.innerHTML = '<tr><td colspan="12" class="px-4 py-8 text-center text-gray-400">Belum ada produk. Tambah di Master Data.</td></tr>';
+      updateDefectaCount(0);
+      return;
+    }
+
+    // Hitung rata² penjualan harian dari transaksi (30 hari)
+    var dailySales = {};
+    try {
+      var txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]');
+      var now = new Date(); var cutoff = new Date(now - 30*86400000);
+      txns.forEach(function(t) {
+        var d = new Date(t.created_at);
+        if (d >= cutoff && t.items) {
+          t.items.forEach(function(it) {
+            var pid = it.productId || it.kode || '';
+            if (!pid) return;
+            dailySales[pid] = (dailySales[pid] || 0) + (parseFloat(it.qty) || 0);
+          });
+        }
+      });
+    } catch(e) {}
+
+    // Sort: habis dulu, lalu menipis, lalu aman
+    var sorted = products.slice().sort(function(a, b) {
+      var sa = (a.stok||0) <= 0 ? 0 : ((a.stok||0) <= (a.stok_minimum||5) ? 1 : 2);
+      var sb = (b.stok||0) <= 0 ? 0 : ((b.stok||0) <= (b.stok_minimum||5) ? 1 : 2);
+      return sa - sb;
+    });
+
+    var belowMin = 0;
+    var rows = sorted.map(function(p) {
+      var stok = parseInt(p.stok) || 0;
+      var stokMin = parseInt(p.stok_minimum) || 5;
+      var kurang = Math.max(0, stokMin - stok);
+      var isHabis = stok <= 0;
+      var isMenipis = !isHabis && stok < stokMin;
+      var isWaspada = !isHabis && !isMenipis && stok < stokMin * 2;
+      var isAman = stok >= stokMin * 2;
+
+      if (isHabis || isMenipis) belowMin++;
+
+      // Rata² penjualan & estimasi habis
+      var kode = p.kode || p.id || '';
+      var avgDay = (dailySales[kode] ? (dailySales[kode] / 30) : 0).toFixed(1);
+      var habisDalam = avgDay > 0 ? Math.floor(stok / parseFloat(avgDay)) : -1;
+
+      // Urgency
+      // FIX: Proper urgency with lead time integration
+      var leadTime = parseInt(p.lead_time) || parseInt(p.lead_time_supplier) || 3; // default 3 hari
+      var urgencyLabel = 'AMAN'; var urgencyClass = 'bg-green-100 text-green-700';
+      var rowBg = '';
+      if (isHabis || stok <= 0) {
+        urgencyLabel = 'SEKARANG'; urgencyClass = 'bg-red-100 text-red-700'; rowBg = 'bg-red-50 dark:bg-red-950/20';
+      } else if (habisDalam >= 0 && habisDalam <= leadTime) {
+        // Stok akan habis sebelum/saat barang datang → harus order SEKARANG
+        urgencyLabel = 'SEKARANG'; urgencyClass = 'bg-red-100 text-red-700'; rowBg = 'bg-red-50 dark:bg-red-950/20';
+      } else if (habisDalam >= 0 && habisDalam <= leadTime + 2) {
+        // Stok habis ~2 hari setelah lead time → order BESOK masih sempet
+        urgencyLabel = 'BESOK'; urgencyClass = 'bg-amber-100 text-amber-700'; rowBg = 'bg-amber-50 dark:bg-amber-950/20';
+      } else if (isMenipis || isWaspada) {
+        urgencyLabel = 'RENCANA'; urgencyClass = 'bg-blue-100 text-blue-700';
+      }
+
+      var supplier = (p.supplier_nama || p.produsen || '—');
+      var estHarga = kurang > 0 ? (parseInt(p.harga_beli) || 0) * kurang : 0;
+
+      return '<tr class="row-hover '+rowBg+'">'+
+        '<td class="px-3 py-3"><input type="checkbox" class="rounded" '+(isHabis||isMenipis?'checked':'')+' data-kode="'+kode+'"></td>'+
+        '<td class="px-3 py-3 font-mono text-xs">' + kode + '</td>'+
+        '<td class="px-3 py-3 font-medium text-xs">' + (p.nama_dagang || p.nama || p.name || '—') + '</td>'+
+        '<td class="px-3 py-3 text-right font-mono text-xs '+(isHabis?'text-red-600':isMenipis?'text-amber-600':'')+' font-semibold">' + stok + '</td>'+
+        '<td class="px-3 py-3 text-right text-xs cursor-pointer" ondblclick="editDefectaMin(\''+kode+'\',this)" title="Double-klik untuk edit">' + stokMin + '</td>'+
+        '<td class="px-3 py-3 text-right font-mono text-xs '+(kurang>0?'text-red-600 font-semibold':'')+'">' + kurang + '</td>'+
+        '<td class="px-3 py-3 text-center font-mono text-xs">' + (avgDay > 0 ? avgDay : '—') + '</td>'+
+        '<td class="px-3 py-3 text-center font-mono text-xs '+(habisDalam>=0&&habisDalam<=3?'text-red-600 font-bold':'')+'">' + (habisDalam>=0 ? habisDalam+' hr' : '—') + '</td>'+
+        '<td class="px-3 py-3 text-xs">' + supplier + '</td>'+
+        '<td class="px-3 py-3 text-center font-mono text-xs">' + leadTime + ' hr</td>'+
+        '<td class="px-3 py-3 text-center"><span class="text-[10px] '+urgencyClass+' px-1.5 py-0.5 rounded-full font-bold">' + urgencyLabel + '</span></td>'+
+        '<td class="px-3 py-3 text-right font-mono text-xs">' + (estHarga > 0 ? 'Rp '+estHarga.toLocaleString('id-ID') : '—') + '</td>'+
+        '</tr>';
+    }).join('');
+
+    defectaTbody.innerHTML = rows;
+    updateDefectaCount(belowMin);
+  };
+
+  function updateDefectaCount(count) {
+    var el = document.getElementById('defecta-count');
+    if (el) el.textContent = count;
+    var btn = document.querySelector('#tab-defecta button');
+    if (btn) btn.innerHTML = btn.innerHTML.replace(/\(\d+ item/, '('+count+' item');
+    // Update urgency summary
+    var summary = document.querySelector('#tab-defecta .border-t .text-gray-500');
+    if (summary) {
+      var red = defectaTbody.querySelectorAll('.bg-red-100').length;
+      var amber = defectaTbody.querySelectorAll('.bg-amber-100').length;
+      summary.innerHTML = 'Total estimasi: <span class="font-mono font-semibold">Rp '+
+        Array.from(defectaTbody.querySelectorAll('td:last-child')).reduce(function(s,td){var v=td.textContent.replace(/[^0-9]/g,'');return s+(parseInt(v)||0);},0).toLocaleString('id-ID')+
+        '</span> ('+defectaTbody.querySelectorAll('tr').length+' item) · Urgency: 🔴 '+red+' · 🟠 '+amber;
+    }
+  }
+
+  window.editDefectaMin = function(kode, td) {
+    var cur = parseInt(td.textContent) || 5;
+    var val = prompt('Stok minimum untuk ' + kode + ':', cur);
+    if (val === null) return;
+    val = parseInt(val) || cur;
+    td.textContent = val;
+    // Update di localStorage
+    var products = [];
+    try { products = JSON.parse(localStorage.getItem('apotek_products_master') || '[]'); } catch(e) {}
+    var found = products.find(function(p) { return (p.kode || p.id) === kode; });
+    if (found) { found.stok_minimum = val; localStorage.setItem('apotek_products_master', JSON.stringify(products)); }
+    renderDefecta();
+  };
+
+  // Auto-render on tab switch
+  var origSwitchTab = window.switchTab;
+  window.switchTab = function(tab) {
+    if (origSwitchTab) origSwitchTab(tab);
+    if (tab === 'defecta') setTimeout(renderDefecta, 50);
+  };
+
+  // Initial render if defecta tab is visible
+  if (!document.getElementById('tab-defecta').classList.contains('hidden')) renderDefecta();
+})();
+</script>
+<div style="text-align:center;padding:8px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb">Powered by <b>Digicraft</b></div></body>
+</html>

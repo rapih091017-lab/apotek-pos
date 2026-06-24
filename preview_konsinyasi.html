@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Preview — Konsinyasi | Apotek POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-bridge.js"></script>
+<script>
+tailwind.config = { darkMode:'class', theme:{ extend:{ fontFamily:{ mono:['Fira Code','Consolas','monospace'], sans:['Fira Sans','Inter','system-ui','sans-serif'] }, colors:{ primary:'#15803D', secondary:'#22C55E', accent:'#0369A1', surface:'#F0FDF4', 'dashboard-gray':'#F4F5F7', 'orange-accent':'#FF5A1F' } } } }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>.card-shadow{box-shadow:0 4px 6px -1px rgba(0,0,0,.05)}.dark .card-shadow{box-shadow:0 4px 6px -1px rgba(0,0,0,.5)}.row-hover:hover{background:#f9fafb}.dark .row-hover:hover{background:#1f2937}.nav-active{background:#111827;color:#fff}.dark .nav-active{background:#FF5A1F;color:#fff}</style>
+<script>function toggleDarkMode(){document.documentElement.classList.toggle('dark');localStorage.setItem('theme',document.documentElement.classList.contains('dark')?'dark':'light')}if(localStorage.theme==='dark'||(!('theme'in localStorage)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');</script>
+</head>
+<body class="bg-dashboard-gray dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100">
+
+<header class="sticky top-0 z-40 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 card-shadow">
+  <div class="flex items-center gap-3"><span class="text-lg font-bold text-primary font-mono">💊 ApotekPOS</span><span class="text-sm font-medium">Konsinyasi</span></div>
+  <div class="flex items-center gap-3">
+    <button onclick="toggleDarkMode()" class="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-sm">🌓</button>
+    <a href="unified_home.html" class="text-xs text-accent hover:underline"></a>
+  </div>
+</header>
+
+<div class="p-6 max-w-5xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <div><h1 class="text-2xl font-bold">📦 Konsinyasi</h1><p class="text-sm text-gray-500">Manajemen barang titipan supplier</p></div>
+    <button onclick="openKonsinyasiForm()" class="px-4 py-2 bg-orange-accent text-white rounded-lg text-sm font-bold hover:bg-orange-700 card-shadow">+ Tambah Konsinyasi</button>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-4 gap-3 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500">Total Barang Titipan</p><p class="text-xl font-bold font-mono text-primary" id="kpi-total">0</p></div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500">Nilai Konsinyasi</p><p class="text-xl font-bold font-mono text-secondary" id="kpi-value">Rp 0</p></div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500">Terjual (Belum Lunas)</p><p class="text-xl font-bold font-mono text-amber-600" id="kpi-sold">Rp 0</p></div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 card-shadow"><p class="text-xs text-gray-500">Sudah Dibayar</p><p class="text-xl font-bold font-mono text-green-600" id="kpi-paid">Rp 0</p></div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
+    <table class="w-full text-sm">
+      <thead><tr class="bg-gray-50 dark:bg-gray-900 text-xs text-gray-500"><th class="px-4 py-3 text-left">Produk</th><th class="px-4 py-3 text-left">Supplier</th><th class="px-4 py-3 text-right">Qty</th><th class="px-4 py-3 text-right">Harga</th><th class="px-4 py-3 text-right">Nilai</th><th class="px-4 py-3 text-center">Status</th><th class="px-4 py-3 text-right">Aksi</th></tr></thead>
+      <tbody id="konsinyasi-table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- FORM MODAL -->
+<div id="konsinyasi-modal" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center" onclick="if(event.target===this)closeKonsinyasiForm()">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md" onclick="event.stopPropagation()">
+    <h3 class="text-lg font-bold mb-4">📦 Tambah Barang Konsinyasi</h3>
+    <div class="space-y-3">
+      <div><label class="block text-xs font-medium mb-1">Nama Produk <span class="text-red-500">*</span></label><input type="text" id="kon-produk" placeholder="Nama obat..." class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      <div><label class="block text-xs font-medium mb-1">Supplier <span class="text-red-500">*</span></label><input type="text" id="kon-supplier" placeholder="Nama supplier..." class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs font-medium mb-1">Qty</label><input type="number" id="kon-qty" value="10" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono"></div>
+        <div><label class="block text-xs font-medium mb-1">Harga Satuan (Rp)</label><input type="number" id="kon-harga" value="0" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono"></div>
+      </div>
+      <div><label class="block text-xs font-medium mb-1">Status</label><select id="kon-status" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><option value="titip">Dititipkan</option><option value="terjual">Terjual (Belum Bayar)</option><option value="lunas">Lunas</option></select></div>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button onclick="closeKonsinyasiForm()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm">Batal</button>
+      <button onclick="saveKonsinyasi()" class="flex-1 py-2.5 bg-orange-accent text-white rounded-lg text-sm font-bold">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"></div>
+
+<script>
+function getData(){try{return JSON.parse(localStorage.getItem('apotek_konsinyasi')||'[]')}catch(e){return[]}}
+function saveData(d){localStorage.setItem('apotek_konsinyasi',JSON.stringify(d))}
+function renderTable(){
+  var data=getData();
+  var total=0, sold=0, paid=0;
+  var rows=data.map(function(k,i){
+    var nilai=k.qty*k.harga;
+    total+=nilai;
+    if(k.status==='terjual')sold+=nilai;
+    if(k.status==='lunas')paid+=nilai;
+    var statusMap={titip:{cls:'bg-blue-100 text-blue-700',lbl:'Dititipkan'},terjual:{cls:'bg-amber-100 text-amber-700',lbl:'Terjual'},lunas:{cls:'bg-green-100 text-green-700',lbl:'Lunas'}};
+    var s=statusMap[k.status]||statusMap.titip;
+    return'<tr class="row-hover"><td class="px-4 py-3 font-medium text-xs">'+k.produk+'</td><td class="px-4 py-3 text-xs">'+k.supplier+'</td><td class="px-4 py-3 text-xs font-mono text-right">'+k.qty+'</td><td class="px-4 py-3 text-xs font-mono text-right">Rp '+k.harga.toLocaleString('id')+'</td><td class="px-4 py-3 text-xs font-mono text-right">Rp '+nilai.toLocaleString('id')+'</td><td class="px-4 py-3 text-center"><span class="text-[10px] '+s.cls+' px-2 py-0.5 rounded-full font-medium">'+s.lbl+'</span></td><td class="px-4 py-3 text-right"><button onclick="markLunas(\''+k.id+'\')" class="text-green-600 hover:underline text-xs mr-1">✓Lunas</button><button onclick="deleteKonsinyasi(\''+k.id+'\')" class="text-red-400 hover:underline text-xs">Hapus</button></td></tr>';
+  }).join('');
+  document.getElementById('konsinyasi-table-body').innerHTML=rows||'<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">Belum ada barang konsinyasi</td></tr>';
+  document.getElementById('kpi-total').textContent=data.length;
+  document.getElementById('kpi-value').textContent='Rp '+total.toLocaleString('id');
+  document.getElementById('kpi-sold').textContent='Rp '+sold.toLocaleString('id');
+  document.getElementById('kpi-paid').textContent='Rp '+paid.toLocaleString('id');
+}
+function openKonsinyasiForm(){document.getElementById('konsinyasi-modal').classList.remove('hidden')}
+function closeKonsinyasiForm(){document.getElementById('konsinyasi-modal').classList.add('hidden')}
+function saveKonsinyasi(){
+  var produk=document.getElementById('kon-produk').value.trim();
+  if(!produk){showToast('⚠️ Nama produk wajib diisi');return}
+  var d=getData();
+  d.push({id:'kon-'+Date.now(),produk:produk,supplier:document.getElementById('kon-supplier').value.trim(),qty:parseInt(document.getElementById('kon-qty').value)||0,harga:parseInt(document.getElementById('kon-harga').value)||0,status:document.getElementById('kon-status').value});
+  saveData(d);closeKonsinyasiForm();renderTable();showToast('✅ Konsinyasi disimpan');
+}
+function markLunas(id){var d=getData().map(function(k){return k.id===id?Object.assign({},k,{status:'lunas'}):k});saveData(d);renderTable();showToast('✅ Ditandai Lunas')}
+function deleteKonsinyasi(id){if(!confirm('Hapus?'))return;saveData(getData().filter(function(k){return k.id!==id}));renderTable();showToast('🗑 Dihapus')}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden');setTimeout(function(){t.classList.add('hidden')},2000)}
+renderTable();
+</script>
+<div style="text-align:center;padding:8px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb">Powered by <b>Digicraft</b></div></body>
+</html>
