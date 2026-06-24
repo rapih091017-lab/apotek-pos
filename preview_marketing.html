@@ -465,9 +465,9 @@ function getTemplates() {
 }
 function defaultTemplates() {
   return [
-    { id:'tpl-1', nama:'Follow-up Tebus Resep', kategori:'Follow-up', pesan:'Halo {nama_pelanggan},\n\nIni dari {nama_apotek}. Kami ingin mengingatkan untuk menebus resep {nama_obat} Anda.\n\nDosis: {dosis}\n\nSilakan datang ke apotek kami. Terima kasih! 😊' },
-    { id:'tpl-2', nama:'Promo Bulanan', kategori:'Promo', pesan:'Halo {nama_pelanggan},\n\nAda promo spesial dari {nama_apotek}!\n\n{promo}\n\nBerlaku hingga {tanggal}.\n\nKunjungi apotek kami sekarang! 🎉' },
-    { id:'tpl-3', nama:'Ucapan Terima Kasih', kategori:'Ucapan', pesan:'Halo {nama_pelanggan},\n\nTerima kasih telah berbelanja di {nama_apotek}. Semoga lekas sembuh!\n\nJangan ragu hubungi kami jika ada pertanyaan. 😊' }
+    { id:'tpl-1', nama:'Follow-up Tebus Resep', kategori:'Follow-up', pesan:'Halo {nama_pelanggan},\n\nIni dari {nama_apotek}. Kami ingin mengingatkan untuk menebus resep {nama_obat} Anda.\n\nDosis: {dosis}\n\nSilakan datang ke apotek kami. Terima kasih!' },
+    { id:'tpl-2', nama:'Promo Bulanan', kategori:'Promo', pesan:'Halo {nama_pelanggan},\n\nAda promo spesial dari {nama_apotek}!\n\n{promo}\n\nBerlaku hingga {tanggal}.\n\nKunjungi apotek kami sekarang!' },
+    { id:'tpl-3', nama:'Ucapan Terima Kasih', kategori:'Ucapan', pesan:'Halo {nama_pelanggan},\n\nTerima kasih telah berbelanja di {nama_apotek}. Semoga lekas sembuh!\n\nJangan ragu hubungi kami jika ada pertanyaan.' }
   ];
 }
 function saveTemplates(data) { localStorage.setItem('apotek_pos_wa_templates', JSON.stringify(data)); }
@@ -878,6 +878,8 @@ function doSendWA() {
 
   var wa = nomor;
   if (!wa.startsWith('62')) wa = '62' + wa.replace(/^0+/, '');
+  // FINAL CLEAN: strip all non-printable chars + emojis from WA message
+  pesan = pesan.replace(/[^\x20-\x7E\x0A\x0D\xC0-\u024F]/g, '').replace(/\s+$/, '');
   var waUrl = 'https://wa.me/' + wa + '?text=' + encodeURIComponent(pesan);
 
   // Try server API first, fallback to wa.me
