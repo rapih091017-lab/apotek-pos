@@ -381,7 +381,7 @@ function addToCartHandler(product) {
       name: product.nama_dagang,
       price: product.harga_jual,
       qty: 1,
-      image: product.image || '💊',
+      image: product.image || '•',
       isResep: false,
       resepPasien: null
     });
@@ -572,7 +572,10 @@ async function finishTransaction() {
   }).join('');
 
 // Bersihin emoji dari struk — thermal printer gak support
-  var cleanText = function(s) { return (typeof s === 'string' ? s.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F700}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{200D}\u{FE0F}]/gu, '') : s); };
+  var cleanText = function(s) { 
+    if (typeof s !== 'string') return s;
+    return s.replace(/[\uD800-\uDFFF\u{1F000}-\u{1FFFF}\u{200D}\u{FE0F}]/gu, '').replace(/[^\x00-\x7F\u00C0-\u024F\s.,;:!?()\-_\/@#$%&*+=]/g, '');
+  };
   
   document.getElementById('print-area').innerHTML = `
     <div class="print-center print-bold print-lg">${cleanText(apotekNama)}</div>
@@ -734,8 +737,8 @@ function kirimDigital() {
 
   // Format WA — mirip struk cetak, branding + friendly
   var sep = '━━━━━━━━━━━━━━━━━━━━━━━━';
-  var msg = '*🏥 ' + d.apotekNama + '*\n';
-  msg += d.apotekAlamat + '\n📞 ' + d.apotekTelp + '\n';
+  var msg = 'APOTEK: ' + d.apotekNama + '\n';
+  msg += d.apotekAlamat + '\nTelp: ' + d.apotekTelp + '\n';
   msg += sep + '\n';
   msg += d.trxNo + '\n' + tgl + ' ' + jam + '\n';
   msg += sep + '\n';
@@ -748,8 +751,8 @@ function kirimDigital() {
   if (d.received > 0) msg += ' Rp' + d.received.toLocaleString('id');
   if (d.change > 0) msg += '\nKembali: Rp' + d.change.toLocaleString('id');
   msg += '\n' + sep + '\n';
-  msg += '💊 ' + d.apotekFooter.replace(/\n/g, '\n');
-  msg += '\n\nTerima kasih — sehat selalu 🙏';
+  msg += d.apotekFooter.replace(/\n/g, '\n');
+  msg += '\n\nTerima kasih - sehat selalu';
 
   // Panggil /api/send-wa dengan timeout 8 detik, fallback ke wa.me
   var controller = new AbortController();
@@ -1163,7 +1166,7 @@ function processPayment() {
   // Load profile from localStorage
   const n = localStorage.getItem('apotek_pos_profile_name') || 'ApotekPOS';
   const el = document.getElementById('kasir-header-name');
-  if (el) el.textContent = '💊 ' + n;
+  if (el) el.textContent = n;
   // Restore shift data
   const shiftStored = localStorage.getItem('apotek_pos_shift_active');
   const shiftData = localStorage.getItem('apotek_pos_shift_data');
