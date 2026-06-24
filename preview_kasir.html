@@ -115,10 +115,10 @@ let shiftKasAkhir = 500000;
 let totalTrxValue = 0;
 let selectedPaymentMethod = null;
 let selectedEwallet = null;
-let apotekNama = 'Apotek POS';
-let apotekAlamat = 'Jl. Kesehatan No. 42';
-let apotekTelp = '(021) 555-0192';
-let apotekFooter = 'Terima kasih telah berbelanja di Apotek Sehat Sentosa.\nObat yang sudah dibeli tidak dapat ditukar/dikembalikan.';
+let apotekNama = localStorage.getItem('apotek_pos_profile_name') || 'Apotek POS';
+let apotekAlamat = localStorage.getItem('apotek_pos_alamat') || 'Jl. Kesehatan No. 42';
+let apotekTelp = localStorage.getItem('apotek_pos_telepon') || '(021) 555-0192';
+let apotekFooter = localStorage.getItem('apotek_pos_footer') || 'Terima kasih telah berbelanja di Apotek Sehat Sentosa.\nObat yang sudah dibeli tidak dapat ditukar/dikembalikan.';
 
 // ===== PRODUCT DATA (via shared ProductDB) =====
 function getProducts() { return window.ProductDB ? ProductDB.getAll() : []; }
