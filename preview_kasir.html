@@ -28,7 +28,7 @@ tailwind.config = {
 <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   @media print {
-    @page { margin: 0; size: 58mm auto; }
+    @page { margin: 0; }
     body { background: white !important; margin: 0 !important; padding: 0 !important; }
     /* Sembunyikan SEMUA elemen kecuali #print-area */
     body * { display: none !important; }
@@ -764,12 +764,8 @@ function printStruk() {
     showToast('⚠️ Tidak ada struk untuk dicetak. Selesaikan transaksi dulu.');
     return;
   }
-  // FIX: Pastikan print-area visible selama print, lalu sembunyikan lagi
-  pa.classList.remove('hidden');
-  setTimeout(function() {
-    window.print();
-    setTimeout(function() { pa.classList.add('hidden'); }, 100);
-  }, 50);
+  // @media print CSS handles everything — no need to toggle hidden
+  window.print();
 }
 
 function kirimDigital() {
@@ -800,9 +796,9 @@ function kirimDigital() {
   msg += sep + '\n';
   msg += d.trxNo + '\n' + tgl + ' ' + jam + '\n';
   msg += sep + '\n';
-  d.cart.forEach(function(c) {
-    msg += c.qty + 'x ' + c.name + '  Rp' + (c.price*c.qty).toLocaleString('id') + '\n';
-  });
+      d.cart.forEach(function(c) {
+          msg += c.qty + 'x ' + c.name + '  @Rp' + c.price.toLocaleString('id') + '  = Rp' + (c.price*c.qty).toLocaleString('id') + '\n';
+      });
   msg += sep + '\n';
   msg += '*TOTAL  : Rp' + d.subtotal.toLocaleString('id') + '*\n';
   msg += 'Bayar  : ' + d.methodLabel.toUpperCase();

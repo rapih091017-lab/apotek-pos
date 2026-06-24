@@ -175,9 +175,9 @@ function doLogin() {
   if (!password) { alert('Password wajib diisi'); return; }
 
   var valid = {
-    'admin@apotek.com': { password:'admin123', role:'admin', user:'Dr. Andi Pratama, S.Farm., Apt.', avatar:'A' },
+    'admin@apotek.com': { password:'admin123', role:'admin', user:'Admin', avatar:'A' },
     'owner@apotek.com': { password:'owner123', role:'owner', user:'Owner Apotek', avatar:'O' },
-    'kasir@apotek.com':  { password:'kasir123',  role:'kasir', user:'Budi Kasir', avatar:'K' }
+    'kasir@apotek.com':  { password:'kasir123',  role:'kasir', user:'Kasir', avatar:'K' }
   };
   var cred = valid[email];
   if (!cred || cred.password !== password) {

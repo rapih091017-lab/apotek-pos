@@ -1278,7 +1278,11 @@ window.addEventListener('message', function(e) {
   }
   
   // Run on page load + storage changes
-  document.addEventListener('DOMContentLoaded', function() { setTimeout(updateDashboardKPIs, 500); });
+  document.addEventListener('DOMContentLoaded', function() { 
+    setTimeout(updateDashboardKPIs, 500); 
+    setTimeout(render7DayChart, 800); 
+    setTimeout(renderTopCustomers, 1000); 
+  });
   window.addEventListener('storage', function(e) {
     if (e.key === 'apotek_pos_transactions' || e.key === 'apotek_products_master') updateDashboardKPIs();
   });
