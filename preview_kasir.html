@@ -634,6 +634,7 @@ async function finishTransaction() {
   document.getElementById('payment-modal').classList.add('hidden');
   document.getElementById('success-modal').classList.remove('hidden');
   document.getElementById('customer-wa').value = '';
+  document.getElementById('customer-name').value = '';
 
   // Save payment method preference
   localStorage.setItem('apotek_pos_last_payment', selectedPaymentMethod);
@@ -732,6 +733,13 @@ function kirimDigital() {
   if (!d) { showToast('⚠️ Tidak ada data transaksi'); return; }
 
   var wa = (document.getElementById('customer-wa').value || '').replace(/[^0-9]/g, '');
+  // Simpan nomor WA ke transaksi terakhir untuk tracking customer
+  if (wa && window._lastTransaction) {
+    var txns = [];
+    try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
+    var trx = txns.find(function(t) { return t.trx_no === d.trxNo; });
+    if (trx) { trx.customer_wa = wa; trx.customer_name = (document.getElementById('customer-name')||{}).value || ''; localStorage.setItem('apotek_pos_transactions', JSON.stringify(txns)); }
+  }
   if (!wa) { showToast('⚠️ Masukkan nomor WA pelanggan terlebih dahulu'); document.getElementById('customer-wa').focus(); return; }
   if (!wa.startsWith('62')) wa = '62' + wa.replace(/^0+/, '');
   
@@ -1151,7 +1159,7 @@ function processPayment() {
     <p class="text-2xl font-bold font-mono text-primary mb-4" id="success-total">Rp 0</p>
     <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Pembayaran: <span id="success-method">TUNAI</span></p>
     <!-- Customer WA -->
-    <input type="text" id="customer-wa" placeholder="No WA pelanggan (08xxx)..." class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm mb-3 font-mono">
+    <div class="flex gap-2 mb-3"><input type="text" id="customer-name" placeholder="Nama (opsional)" class="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"><input type="text" id="customer-wa" placeholder="No WA (08xxx)..." class="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono"></div>
     <div class="grid grid-cols-2 gap-2 mb-3">
       <button onclick="printStruk()" class="py-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600">🖨 Cetak Struk</button>
       <button onclick="kirimDigital()" class="py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">📱 Kirim WA</button>

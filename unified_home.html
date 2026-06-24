@@ -1244,20 +1244,22 @@ window.addEventListener('message', function(e) {
   var _origSwitchTab = window.switchTab;
   window.switchTab = function(tab) {
     _origSwitchTab(tab);
-    if (tab === 'home') { setTimeout(updateDashboardKPIs, 150); setTimeout(render7DayChart, 200); }
+    if (tab === 'home') { setTimeout(updateDashboardKPIs, 150); setTimeout(render7DayChart, 200); setTimeout(renderTopCustomers, 250); }
   };
   
   // 7-Day bar chart — reads real transaction data
   function render7DayChart() {
-    var container = document.getElementById('chart-7days');
-    if (!container) {
-      // Find the bar chart container
-      var bars = document.querySelector('#tab-home .flex.items-end.gap-1');
-      if (!bars) return;
-      bars.id = 'chart-7days';
-      container = bars;
-    }
-    var txns = getTxns();
+    // Find container by heading text
+    var allCards = document.querySelectorAll('#tab-home .bg-white.rounded-xl');
+    var container = null;
+    allCards.forEach(function(card) {
+      var h3 = card.querySelector('h3');
+      if (h3 && h3.textContent.includes('7 Hari Terakhir')) container = card.querySelector('.flex.items-end, [class*="items-end"]');
+    });
+    if (!container || container.id === 'chart-7days-initialized') return;
+    container.id = 'chart-7days-initialized';
+    container.classList.add('gap-1');
+    var txns = []; try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
     var days = [];
     for (var i = 6; i >= 0; i--) {
       var d = new Date(); d.setDate(d.getDate() - i);
@@ -1274,6 +1276,60 @@ window.addEventListener('message', function(e) {
         '<div class="w-full bg-orange-accent dark:bg-orange-600'+(isToday?' opacity-100':' opacity-'+(40+i*10))+' rounded-t" style="height:'+pct+'%"></div>'+
         '<span class="text-[10px] '+(isToday?'font-bold text-primary':'text-gray-500 dark:text-gray-400')+'">'+d.label+'</span>'+
         (d.total > 0 ? '<span class="absolute -top-5 text-[10px] font-bold font-mono text-primary">'+(d.total>=1000000?(d.total/1000000).toFixed(1)+'jt':d.total.toLocaleString('id'))+'</span>' : '')+
+        '</div>';
+    }).join('');
+  }
+  
+  // Top Customers — from contact + transaction data
+  function renderTopCustomers() {
+    var section = document.querySelector('#tab-home h3');
+    var list = null;
+    // Find the loyal customer list
+    var allH3s = document.querySelectorAll('#tab-home h3');
+    allH3s.forEach(function(h3) {
+      if (h3.textContent.includes('Pelanggan Terloyal')) {
+        list = h3.parentElement.querySelector('.space-y-2');
+      }
+    });
+    if (!list) return;
+    // Count transactions by phone number from auto-saved contacts
+    var contacts = [];
+    try { contacts = JSON.parse(localStorage.getItem('apotek_kontak') || '[]'); } catch(e) {}
+    var txns = [];
+    try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
+    // Build customer stats: count transactions per phone number
+    var custMap = {}; var custNames = {};
+    txns.forEach(function(t) {
+      var wa = t.customer_wa || '';
+      if (wa && t.status !== 'void') {
+        custMap[wa] = (custMap[wa] || 0) + 1;
+        if (t.customer_name) custNames[wa] = t.customer_name;
+      }
+    });
+    // Merge with contact names
+    var customers = contacts.map(function(c) {
+      var count = custMap[c.no_hp] || 0;
+      var name = custNames[c.no_hp] || c.nama || 'Pelanggan ' + (c.no_hp||'').slice(-4);
+      return { nama: name, count: count, no_hp: c.no_hp };
+    });
+    // Also include phone-only customers (no contact record)
+    Object.keys(custMap).forEach(function(hp) {
+      if (!contacts.find(function(c) { return c.no_hp === hp; })) {
+        var name = custNames[hp] || 'Pelanggan ' + hp.slice(-4);
+        customers.push({ nama: name, count: custMap[hp], no_hp: hp });
+      }
+    });
+    // Sort by transaction count desc
+    customers.sort(function(a, b) { return b.count - a.count; });
+    var top = customers.slice(0, 5);
+    if (!top.length) {
+      list.innerHTML = '<div class="text-sm text-gray-400 text-center py-3">Belum ada data pelanggan.<br><span class="text-xs">Isi nomor WA saat transaksi di Kasir</span></div>';
+      return;
+    }
+    list.innerHTML = top.map(function(c, i) {
+      return '<div class="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 last:border-0">'+
+        '<div><span class="font-bold '+(i===0?'text-primary':'text-gray-500 dark:text-gray-400')+' mr-2">#'+(i+1)+'</span>'+c.nama+'</div>'+
+        '<div class="text-xs"><span class="font-mono font-bold">'+c.count+'</span> transaksi</div>'+
         '</div>';
     }).join('');
   }
