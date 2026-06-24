@@ -1246,8 +1246,12 @@ window.addEventListener('message', function(e) {
   var _origSwitchTab = window.switchTab;
   window.switchTab = function(tab) {
     _origSwitchTab(tab);
-    if (tab === 'home') { setTimeout(updateDashboardKPIs, 150); setTimeout(render7DayChart, 200); setTimeout(renderTopCustomers, 250); }
+    if (tab === 'home') { setTimeout(updateDashboardKPIs, 150); setTimeout(render7DayChart, 300); setTimeout(renderTopCustomers, 350); }
   };
+  // Refresh chart + customers when transaction data changes (cross-tab sync)
+  window.addEventListener('storage', function(e) {
+    if (e.key === 'apotek_pos_transactions') { setTimeout(render7DayChart, 500); setTimeout(renderTopCustomers, 500); }
+  });
   
   // 7-Day bar chart — reads real transaction data
   function render7DayChart() {

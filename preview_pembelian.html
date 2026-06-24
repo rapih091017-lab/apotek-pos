@@ -632,7 +632,7 @@ async function legacyConfirmReceive() {
 
   // Create a mock faktur and update PO
   try {
-      let invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices')) || [];
+      let invoices = JSON.parse(localStorage.getItem('apotek_purchase_invoices')) || [];
       const fNo = 'FK-' + Date.now().toString().slice(-6);
       invoices.push({
           nomor: fNo,
@@ -643,7 +643,7 @@ async function legacyConfirmReceive() {
           status: 'BELUM LUNAS',
           items: [{nama: 'Paracetamol', qty: 10, harga: 15000}]
       });
-      localStorage.setItem('apotek_pos_invoices', JSON.stringify(invoices));
+      localStorage.setItem('apotek_purchase_invoices', JSON.stringify(invoices));
 
       // Attempt to find and update PO status to SEBAGIAN or SELESAI
       let pos = await getPOs();
@@ -670,7 +670,7 @@ function openReturForm() {
   const select = document.getElementById('retur-faktur');
   select.innerHTML = '<option value="">-- Pilih Faktur --</option>';
   try {
-    const invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices')) || [];
+    const invoices = JSON.parse(localStorage.getItem('apotek_purchase_invoices')) || [];
     invoices.forEach(inv => {
       select.innerHTML += `<option value="${inv.nomor}">${inv.nomor} · ${inv.supplier} · Rp ${inv.total.toLocaleString('id')}</option>`;
     });
@@ -704,7 +704,7 @@ function loadFakturItems() {
   
   let targetInv = null;
   try {
-    const invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices')) || [];
+    const invoices = JSON.parse(localStorage.getItem('apotek_purchase_invoices')) || [];
     targetInv = invoices.find(i => i.nomor === faktur);
   } catch(e) {}
   
@@ -794,7 +794,7 @@ async function saveRetur() {
   const returDate = document.querySelector('#retur-slideover input[type="date"]');
   const total = checkedCards.reduce((sum, item) => sum + (item.qty * item.harga), 0);
   const returns = JSON.parse(localStorage.getItem('apotek_pos_returns') || '[]');
-  const faktur = JSON.parse(localStorage.getItem('apotek_pos_invoices') || '[]').find(function(inv) { return inv.nomor === fakturEl.value; });
+  const faktur = JSON.parse(localStorage.getItem('apotek_purchase_invoices') || '[]').find(function(inv) { return inv.nomor === fakturEl.value; });
   const rtNo = 'RT-' + Date.now().toString().slice(-6);
   returns.unshift({
     nomor: rtNo,
@@ -1194,9 +1194,9 @@ async function confirmReceive() {
   // ApotekDB.savePurchaseInvoice(newFaktur); 
   // Since it doesn't exist yet, we save it in local storage directly for now
   try {
-    let invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices')) || [];
+    let invoices = JSON.parse(localStorage.getItem('apotek_purchase_invoices')) || [];
     invoices.unshift(newFaktur);
-    localStorage.setItem('apotek_pos_invoices', JSON.stringify(invoices));
+    localStorage.setItem('apotek_purchase_invoices', JSON.stringify(invoices));
   } catch(e){}
   
   applyReceivedStock(fakturItems);
@@ -1231,7 +1231,7 @@ async function renderReturTable() {
 async function renderHutangTable() {
   const tbody = document.querySelector('#tab-hutang table tbody');
   if(!tbody) return;
-  const invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices') || '[]');
+  const invoices = JSON.parse(localStorage.getItem('apotek_purchase_invoices') || '[]');
   const grouped = {};
   invoices.forEach(function(inv) {
     const supplier = inv.supplier || 'Supplier';
@@ -1265,7 +1265,7 @@ async function renderRiwayatTable() {
   const tbody = document.querySelector('#tab-riwayat table tbody');
   if(!tbody) return;
   const pos = await getPOs();
-  const invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices') || '[]');
+  const invoices = JSON.parse(localStorage.getItem('apotek_purchase_invoices') || '[]');
   const returns = JSON.parse(localStorage.getItem('apotek_pos_returns') || '[]');
   const rows = [];
   pos.forEach(function(po) {
@@ -1297,7 +1297,7 @@ async function renderRiwayatTable() {
 async function renderFakturTable() {
   let invoices = [];
   try {
-    invoices = JSON.parse(localStorage.getItem('apotek_pos_invoices')) || [];
+    invoices = JSON.parse(localStorage.getItem('apotek_purchase_invoices')) || [];
   } catch(e){}
   
   const tbody = document.querySelector('#tab-faktur table tbody');
@@ -1451,7 +1451,7 @@ async function renderFakturTable() {
       await _origConfirm.apply(this, arguments);
       // Post-save: copy invoice to ProductDB-compatible key
       try {
-        var invs = JSON.parse(localStorage.getItem('apotek_pos_invoices') || '[]');
+        var invs = JSON.parse(localStorage.getItem('apotek_purchase_invoices') || '[]');
         localStorage.setItem('apotek_purchase_invoices', JSON.stringify(invs));
       } catch(e) {}
     };
