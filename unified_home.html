@@ -1239,6 +1239,13 @@ window.addEventListener('message', function(e) {
     if (origRefresh) origRefresh();
     updateDashboardKPIs();
   };
+  
+  // Auto-refresh dashboard when switching to home tab
+  var _origSwitchTab = window.switchTab;
+  window.switchTab = function(tab) {
+    _origSwitchTab(tab);
+    if (tab === 'home') setTimeout(updateDashboardKPIs, 150);
+  };
 })();
 </script>
 </body>
