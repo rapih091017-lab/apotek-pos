@@ -571,14 +571,17 @@ async function finishTransaction() {
     `;
   }).join('');
 
+// Bersihin emoji dari struk — thermal printer gak support
+  var cleanText = function(s) { return (typeof s === 'string' ? s.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F700}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{200D}\u{FE0F}]/gu, '') : s); };
+  
   document.getElementById('print-area').innerHTML = `
-    <div class="print-center print-bold print-lg">${apotekNama}</div>
-    <div class="print-center print-sm">${apotekAlamat}</div>
-    <div class="print-center print-sm">${apotekTelp}</div>
+    <div class="print-center print-bold print-lg">${cleanText(apotekNama)}</div>
+    <div class="print-center print-sm">${cleanText(apotekAlamat)}</div>
+    <div class="print-center print-sm">${cleanText(apotekTelp)}</div>
     <div class="print-dashed"></div>
     <div class="print-row"><span>Nota : ${trxNo}</span></div>
     <div class="print-row"><span>Tgl  : ${now.toLocaleString('id-ID')}</span></div>
-    <div class="print-row"><span>Kasir: ${localStorage.getItem('apotek_pos_user') || 'Admin'}</span></div>
+    <div class="print-row"><span>Kasir: ${cleanText(localStorage.getItem('apotek_pos_user') || 'Admin')}</span></div>
     <div class="print-double"></div>
     ${itemRows}
     <div class="print-dashed"></div>
@@ -586,7 +589,7 @@ async function finishTransaction() {
     <div class="print-row"><span>BAYAR (${methodLabel.toUpperCase()}):</span><span class="print-right">${received.toLocaleString('id-ID')}</span></div>
     <div class="print-row"><span>KEMBALI:</span><span class="print-right">${kembalian.toLocaleString('id-ID')}</span></div>
     <div class="print-double"></div>
-    <div class="print-center print-sm" style="margin-top:6px;margin-bottom:12px;">${apotekFooter.replace(/\n/g,'<br>')}</div>
+    <div class="print-center print-sm" style="margin-top:6px;margin-bottom:12px;">${cleanText(apotekFooter).replace(/\n/g,'<br>')}</div>
   `;
 
   const itemsSnapshot = cart.map(c => ({ productId: c.productId, name: c.name, qty: c.qty, price: c.price, isResep: c.isResep || false, pasien: c.resepPasien || null }));
@@ -613,7 +616,7 @@ async function finishTransaction() {
       if (pa) {
         var cur = pa.innerHTML;
         pa.innerHTML = cur.replace('<div class="print-double"></div>\n    <div class="print-center', 
-          '<div class="print-dashed"></div><div class="print-center print-sm" style="font-size:8px;">📦 FEFO Batch:</div>' + batchRows + '<div class="print-double"></div>\n    <div class="print-center');
+          '<div class="print-dashed"></div><div class="print-center print-sm" style="font-size:8px;">[FEFO] Batch:</div>' + batchRows + '<div class="print-double"></div>\n    <div class="print-center');
       }
     }
   }
