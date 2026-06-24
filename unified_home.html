@@ -61,6 +61,51 @@ tailwind.config = {
   #global-sidebar[data-state="collapsed"] .sidebar-link:hover::after { content: attr(data-tooltip); position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); background: #1f2937; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; z-index: 100; pointer-events: none; }
   .dark #global-sidebar[data-state="collapsed"] .sidebar-link:hover::after { background: #e5e7eb; color: #111827; }
   @media (max-width:768px){ #global-sidebar{position:fixed;z-index:50;height:calc(100vh - 56px);left:0;top:56px;transition:left 0.25s ease} #global-sidebar .mobile-close-btn{display:flex!important} #global-sidebar:not([data-mobile-open]){left:calc(var(--sidebar-width)*-1)} #global-sidebar[data-mobile-open]{left:0;box-shadow:4px 0 12px rgba(0,0,0,.15)} .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:40} .sidebar-overlay.active{display:block} }
+
+  /* ===== 7-Day Sales Chart ===== */
+  .chart-bar {
+    transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, background 0.2s ease;
+    min-height: 4px;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    position: relative;
+  }
+  .chart-bar:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 0 8px rgba(255,90,31,0.35);
+  }
+  .chart-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    z-index: 30;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  }
+  .chart-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #1f2937;
+  }
+  .dark .chart-tooltip { background: #e5e7eb; color: #111827; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  .dark .chart-tooltip::after { border-top-color: #e5e7eb; }
+  .chart-bar:hover .chart-tooltip { opacity: 1; }
+  .chart-label { transition: color 0.2s ease; }
+  .chart-bar:hover + .chart-label { color: #FF5A1F !important; font-weight: 700; }
 </style>
 
 <script>
@@ -309,14 +354,8 @@ tailwind.config = {
       <div class="grid grid-cols-3 gap-4 mb-4">
         <div class="col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow">
           <h3 class="font-semibold mb-4">Penjualan 7 Hari Terakhir</h3>
-          <div class="flex items-end gap-2 h-40">
-            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/20 rounded-t" style="height:45%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">13 Jun</span></div>
-            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/30 rounded-t" style="height:60%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">14 Jun</span></div>
-            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/40 rounded-t" style="height:35%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">15 Jun</span></div>
-            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/60 rounded-t" style="height:80%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">16 Jun</span></div>
-            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/70 rounded-t" style="height:65%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">17 Jun</span></div>
-            <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-orange-accent dark:bg-orange-600/90 rounded-t" style="height:90%"></div><span class="text-[10px] text-gray-500 dark:text-gray-400">18 Jun</span></div>
-            <div class="flex-1 flex flex-col items-center gap-1 relative"><div class="w-full bg-orange-accent dark:bg-orange-600 rounded-t" style="height:100%"></div><span class="text-[10px] font-bold text-primary">19 Jun</span><span class="absolute -top-5 text-[10px] font-bold font-mono text-primary">2.45jt</span></div>
+          <div data-chart="7day" class="flex items-end gap-1.5 h-48">
+            <div class="flex-1 flex flex-col items-center justify-end gap-1.5 h-full"><div class="w-full chart-bar bg-orange-accent/20 rounded-t" style="height:8%"><div class="chart-tooltip">Memuat data...</div></div><span class="text-[10px] text-gray-400 chart-label">---</span></div>
           </div>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow"><h3 class="font-semibold mb-3">🏅 Pelanggan Terloyal</h3>
@@ -1263,39 +1302,83 @@ window.addEventListener('message', function(e) {
     if (e.key === 'apotek_pos_transactions') { setTimeout(render7DayChart, 500); setTimeout(renderTopCustomers, 500); }
   });
   
-  // 7-Day bar chart — reads real transaction data
+  // 7-Day bar chart — reads real transaction data with tooltips
   function render7DayChart() {
-    // Find container by heading text
-    var allCards = document.querySelectorAll('#tab-home .bg-white.rounded-xl');
-    var container = null;
-    allCards.forEach(function(card) {
-      var h3 = card.querySelector('h3');
-      if (h3 && h3.textContent.includes('7 Hari Terakhir')) container = card.querySelector('.flex.items-end, [class*="items-end"]');
-    });
+    var container = document.querySelector('[data-chart="7day"]');
     if (!container) return;
-    container.id = 'chart-7days-initialized';
-    container.classList.add('gap-1');
-    container.style.height = '120px';
-    container.style.alignItems = 'flex-end';
-    var txns = []; try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
+
+    // Read transactions from localStorage
+    var txns = [];
+    try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
+
+    // Build last 7 days of sales data
     var days = [];
     for (var i = 6; i >= 0; i--) {
-      var d = new Date(); d.setDate(d.getDate() - i);
+      var d = new Date();
+      d.setDate(d.getDate() - i);
       var key = d.toISOString().split('T')[0];
-      var total = txns.filter(function(t) { return (t.created_at||'').startsWith(key) && t.status !== 'void'; })
-        .reduce(function(s, t) { return s + (t.total||t.subtotal||0); }, 0);
-      days.push({ label: d.toLocaleDateString('id',{day:'numeric',month:'short'}), total: total, key: key });
+      var dayTxns = txns.filter(function(t) {
+        return (t.created_at || '').startsWith(key) && t.status !== 'void';
+      });
+      var total = dayTxns.reduce(function(s, t) { return s + (t.total || t.subtotal || 0); }, 0);
+      var count = dayTxns.length;
+      days.push({
+        label: d.toLocaleDateString('id', { day: 'numeric', month: 'short' }),
+        total: total,
+        count: count,
+        key: key
+      });
     }
+
     var max = Math.max.apply(null, days.map(function(d) { return d.total; })) || 1;
+
+    // Format currency helper
+    function fmtRp(val) {
+      if (val >= 1000000) return 'Rp ' + (val / 1000000).toFixed(1) + ' jt';
+      if (val >= 1000) return 'Rp ' + (val / 1000).toFixed(0) + ' rb';
+      return 'Rp ' + val.toLocaleString('id');
+    }
+
+    // Opacity ramp: older bars are lighter, today is fully opaque
+    function barOpacity(idx) {
+      var opacities = [0.40, 0.48, 0.56, 0.64, 0.72, 0.85, 1.0];
+      return opacities[idx] || 0.6;
+    }
+
+    // Minimum visible height so zero-value bars still show a sliver
+    function barHeight(val) {
+      var pct = Math.round((val / max) * 100);
+      return Math.max(pct, val > 0 ? 8 : 2);
+    }
+
     container.innerHTML = days.map(function(d, i) {
-      var pct = Math.round(d.total / max * 100);
+      var h = barHeight(d.total);
+      var opacity = barOpacity(i);
       var isToday = i === 6;
-      return '<div class="flex-1 flex flex-col items-center gap-1 relative">'+
-        '<div class="w-full bg-orange-accent dark:bg-orange-600'+(isToday?' opacity-100':' opacity-'+(40+i*10))+' rounded-t" style="height:'+pct+'%"></div>'+
-        '<span class="text-[10px] '+(isToday?'font-bold text-primary':'text-gray-500 dark:text-gray-400')+'">'+d.label+'</span>'+
-        (d.total > 0 ? '<span class="absolute -top-5 text-[10px] font-bold font-mono text-primary">'+(d.total>=1000000?(d.total/1000000).toFixed(1)+'jt':d.total.toLocaleString('id'))+'</span>' : '')+
-        '</div>';
+      var labelClass = isToday ? 'font-bold text-primary dark:text-green-400' : 'text-gray-500 dark:text-gray-400';
+      var barBg = isToday
+        ? 'bg-orange-accent dark:bg-orange-500'
+        : 'bg-orange-accent dark:bg-orange-600';
+
+      var tooltipLines = [];
+      tooltipLines.push('<strong>' + d.label + '</strong>');
+      if (d.total > 0) {
+        tooltipLines.push(fmtRp(d.total));
+        tooltipLines.push(d.count + ' transaksi');
+      } else {
+        tooltipLines.push('Tidak ada penjualan');
+      }
+
+      return '<div class="flex-1 flex flex-col items-center justify-end gap-1.5 h-full" style="min-width:0">' +
+        '<div class="w-full chart-bar ' + barBg + ' rounded-t" style="height:' + h + '%; opacity:' + opacity + '">' +
+          '<div class="chart-tooltip">' + tooltipLines.join('<br>') + '</div>' +
+        '</div>' +
+        '<span class="text-[10px] chart-label ' + labelClass + '">' + d.label + '</span>' +
+      '</div>';
     }).join('');
+
+    // Store rendered data for potential re-use
+    container.setAttribute('data-rendered', 'true');
   }
   
   // Top Customers — from contact + transaction data
@@ -1352,68 +1435,7 @@ window.addEventListener('message', function(e) {
     }).join('');
   }
   
-  // Dynamic Laporan tab — replace hardcoded values with real data
-  window.renderLaporan = function renderLaporan() {
-    var txns = []; try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions')||'[]'); } catch(e) {}
-    var products = []; try { products = JSON.parse(localStorage.getItem('apotek_products_master')||'[]'); } catch(e) {}
-    // Read date filter from Laporan tab inputs
-    var penjualanDiv = document.getElementById('sub-laporan-penjualan');
-    var startDate = new Date(Date.now()-30*86400000);
-    var endDate = new Date();
-    if (penjualanDiv) {
-      var inputs = penjualanDiv.querySelectorAll('input[type="date"]');
-      if (inputs[0] && inputs[0].value) { var d = new Date(inputs[0].value); if (!isNaN(d)) startDate = d; }
-      if (inputs[1] && inputs[1].value) { var d = new Date(inputs[1].value); if (!isNaN(d)) endDate = d; }
-    }
-    endDate.setHours(23,59,59);
-    // Filter by date range
-    var filtered = txns.filter(function(t){
-      if (t.status==='void') return false;
-      var d = new Date(t.created_at);
-      return d >= startDate && d <= endDate;
-    });
-    var totalRevenue = filtered.reduce(function(s,t){return s+(t.total||t.subtotal||0)},0);
-    var totalTrx = filtered.length;
-    var avgDay = totalTrx > 0 ? Math.round(totalRevenue / Math.max(1, totalTrx)) : 0;
-    var totalPengeluaran = 0;
-    var totalMargin = filtered.reduce(function(s,t){
-      return s + (t.items||[]).reduce(function(ss,i){
-        var prod = products.find(function(p){return(p.kode||p.id)===(i.productId||i.kode)});
-        var beli = prod ? (prod.harga_beli||0) : 0;
-        var jual = i.price||0;
-        var qty = i.qty||1;
-        totalPengeluaran += beli * qty;
-        return ss + (jual - beli) * qty;
-      },0);
-    },0);
-    // Update KPI cards by explicit ID — reliable regardless of DOM changes
-    var setKpi = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
-    setKpi('kpi-lap-penjualan', 'Rp '+totalRevenue.toLocaleString('id'));
-    setKpi('kpi-lap-transaksi', totalTrx);
-    setKpi('kpi-lap-ratahari', 'Rp '+(totalTrx>0?Math.round(totalRevenue/Math.max(1,Math.ceil((endDate-startDate)/86400000))):0).toLocaleString('id'));
-    setKpi('kpi-lap-ratatrx', 'Rp '+avgDay.toLocaleString('id'));
-    setKpi('kpi-lap-margin', 'Rp '+totalMargin.toLocaleString('id'));
-    // Update Keuangan sub-tab
-    var keuanganDiv = document.getElementById('sub-keuangan-transaksi');
-    if (keuanganDiv) {
-      var kkpis = keuanganDiv.querySelectorAll('.card-shadow .text-xl');
-      if (kkpis[0]) kkpis[0].textContent = 'Rp '+totalRevenue.toLocaleString('id'); // Saldo Kas ≈ total revenue
-      if (kkpis[1]) kkpis[1].textContent = 'Rp '+totalRevenue.toLocaleString('id'); // Pemasukan
-      if (kkpis[2]) kkpis[2].textContent = 'Rp '+totalPengeluaran.toLocaleString('id'); // Pengeluaran
-    }
-    // Produk sub-tab: update table with real top products
-    var prodCounts = {};
-    filtered.forEach(function(t){
-      (t.items||[]).forEach(function(i){ prodCounts[i.name||''] = (prodCounts[i.name||'']||0)+(i.qty||1); });
-    });
-    var topProducts = Object.entries(prodCounts).sort(function(a,b){return b[1]-a[1]}).slice(0,5);
-    var produkTable = document.querySelector('#sub-laporan-produk table tbody');
-    if (produkTable && topProducts.length) {
-      produkTable.innerHTML = topProducts.map(function(e,i){
-        return '<tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3 font-bold text-primary">'+(i+1)+'</td><td class="px-4 py-3 font-medium">'+e[0]+'</td><td class="px-4 py-3">-</td><td class="px-4 py-3 font-mono">'+e[1]+'</td><td class="px-4 py-3 font-mono">-</td><td class="px-4 py-3 font-mono text-green-700">-</td></tr>';
-      }).join('');
-    }
-  }
+  // renderLaporan now handled by js/final-laporan-fix.js
 })();
 </script>
 <script>

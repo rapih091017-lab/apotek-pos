@@ -402,6 +402,33 @@ function removeFromCart(index) {
 function updateCartQty(index, delta) {
   cart[index].qty += delta;
   if (cart[index].qty <= 0) cart.splice(index, 1);
+  else {
+    // Cap at available stock when incrementing
+    if (delta > 0) {
+      var products = getProducts();
+      var product = products.find(function(p) { return p.id === cart[index].productId; });
+      if (product && cart[index].qty > (product.stok || 0)) {
+        cart[index].qty = product.stok || 1;
+        showToast('⚠️ Stok tidak mencukupi');
+      }
+    }
+  }
+  renderCart();
+}
+
+function setCartQty(index, el) {
+  var newQty = parseInt(el.value, 10);
+  if (isNaN(newQty) || newQty < 1) { newQty = 1; }
+  if (newQty > 99) { newQty = 99; }
+  // Validate against available stock
+  var products = getProducts();
+  var product = products.find(function(p) { return p.id === cart[index].productId; });
+  if (product) {
+    var maxStock = product.stok || 0;
+    if (maxStock <= 0) { newQty = 1; showToast('⚠️ Stok habis'); }
+    else if (newQty > maxStock) { newQty = maxStock; showToast('⚠️ Stok hanya tersedia ' + maxStock); }
+  }
+  cart[index].qty = newQty;
   renderCart();
 }
 
@@ -414,7 +441,11 @@ function renderCart() {
       <td class="px-3 py-2 text-xs font-medium">${c.name}${c.isResep ? ' 🏥' : ''}</td>
       <td class="px-3 py-2 text-xs text-center">
         <button onclick="updateCartQty(${i}, -1)" class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-bold">−</button>
-        <span class="mx-1.5 font-mono text-xs">${c.qty}</span>
+        <input type="number" min="1" max="99" value="${c.qty}"
+          onchange="setCartQty(${i}, this)"
+          onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault();}"
+          class="w-12 text-center mx-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-xs font-mono dark:text-white"
+          style="appearance:textfield;-moz-appearance:textfield;" />
         <button onclick="updateCartQty(${i}, 1)" class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-bold">+</button>
       </td>
       <td class="px-3 py-2 text-xs font-mono text-right">Rp ${(c.price * c.qty).toLocaleString('id')}</td>
@@ -689,7 +720,15 @@ function reduceProductStocks(items) {
 }
 
 function closeSuccessModal() {
+  // Auto-save contact + points if phone is entered (even without Kirim WA)
+  var wa = (document.getElementById('customer-wa').value || '').replace(/[^0-9]/g, '');
+  if (wa && window._lastTransaction) {
+    autoSaveContact(wa, window._lastTransaction.subtotal, (document.getElementById('customer-name')||{}).value || '');
+  }
   document.getElementById('success-modal').classList.add('hidden');
+  // Hide poin display for next transaction
+  var poinEl = document.getElementById('customer-poin-display');
+  if (poinEl) poinEl.classList.add('hidden');
 }
 
 // ===== RESEP =====
@@ -745,7 +784,7 @@ function kirimDigital() {
   if (!wa.startsWith('62')) wa = '62' + wa.replace(/^0+/, '');
   
   // Auto-save nomor WA ke database kontak (marketing asset)
-  autoSaveContact(wa);
+  autoSaveContact(wa, d.subtotal, (document.getElementById('customer-name')||{}).value || '');
 
   var tgl = d.now.toLocaleDateString('id', {day:'numeric',month:'long',year:'numeric'});
   var jam = d.now.toLocaleTimeString('id', {hour:'2-digit',minute:'2-digit'});
@@ -833,23 +872,100 @@ function updatePaymentButton() {
   document.getElementById('btn-bayar').disabled = cart.length === 0 || !shiftActive;
 }
 
-// Auto-save nomor WA ke kontak (marketing)
-function autoSaveContact(waNumber) {
+// Auto-save/update kontak + loyalty points dari transaksi
+function autoSaveContact(waNumber, subtotal, customerName) {
   try {
     var contacts = JSON.parse(localStorage.getItem('apotek_kontak') || '[]');
-    var exists = contacts.find(function(c) { return c.no_hp && c.no_hp.replace(/[^0-9]/g,'') === waNumber; });
-    if (!exists) {
+    // Normalize phone for matching
+    var normalized = waNumber.replace(/[^0-9]/g, '');
+    if (normalized.startsWith('62')) normalized = normalized.substring(2);
+    if (normalized.startsWith('0')) normalized = normalized.substring(1);
+
+    var exists = contacts.find(function(c) {
+      if (!c.no_hp) return false;
+      var cNorm = c.no_hp.replace(/[^0-9]/g, '');
+      if (cNorm.startsWith('62')) cNorm = cNorm.substring(2);
+      if (cNorm.startsWith('0')) cNorm = cNorm.substring(1);
+      return cNorm === normalized;
+    });
+
+    var pointsEarned = subtotal ? Math.floor(subtotal / 1000) : 0;
+    var now = new Date().toISOString();
+    var nama = customerName || '';
+
+    if (exists) {
+      // Update existing contact
+      if (nama && (!exists.nama || exists.nama.indexOf('Pelanggan ') === 0)) {
+        exists.nama = nama;
+      }
+      exists.poin = (exists.poin || 0) + pointsEarned;
+      exists.total_belanja = (exists.total_belanja || 0) + (subtotal || 0);
+      exists.total_trx = (exists.total_trx || 0) + 1;
+      exists.last_trx_at = now;
+      exists.no_hp = waNumber; // update formatting
+      // Auto-upgrade segment based on points
+      if (exists.poin >= 500) exists.segment = '⭐ Member';
+      else if (exists.poin >= 100) exists.segment = 'Reguler';
+      else exists.segment = exists.segment || 'Baru';
+    } else {
+      // Create new contact
       contacts.unshift({
         id: 'kontak-auto-' + Date.now(),
         tipe: 'pelanggan',
         kode: 'AUTO-' + Date.now().toString(36).toUpperCase(),
-        nama: 'Pelanggan ' + waNumber.slice(-4),
+        nama: nama || ('Pelanggan ' + waNumber.slice(-4)),
         no_hp: waNumber,
-        created_at: new Date().toISOString()
+        email: '',
+        alamat: '',
+        poin: pointsEarned,
+        total_belanja: subtotal || 0,
+        total_trx: 1,
+        last_trx_at: now,
+        segment: 'Baru',
+        created_at: now
       });
-      localStorage.setItem('apotek_kontak', JSON.stringify(contacts));
     }
-  } catch(e) {}
+    localStorage.setItem('apotek_kontak', JSON.stringify(contacts));
+    // Store last saved contact for UI display
+    window._lastSavedContact = exists || contacts[0];
+  } catch(e) { console.warn('autoSaveContact error:', e); }
+}
+
+// Lookup customer by phone and return contact data for UI
+function lookupCustomerByPhone(phoneNumber) {
+  try {
+    var contacts = JSON.parse(localStorage.getItem('apotek_kontak') || '[]');
+    var normalized = phoneNumber.replace(/[^0-9]/g, '');
+    if (normalized.startsWith('62')) normalized = normalized.substring(2);
+    if (normalized.startsWith('0')) normalized = normalized.substring(1);
+    return contacts.find(function(c) {
+      if (!c.no_hp) return false;
+      var cNorm = c.no_hp.replace(/[^0-9]/g, '');
+      if (cNorm.startsWith('62')) cNorm = cNorm.substring(2);
+      if (cNorm.startsWith('0')) cNorm = cNorm.substring(1);
+      return cNorm === normalized;
+    }) || null;
+  } catch(e) { return null; }
+}
+
+// Update Poin display in success modal when phone is entered
+function lookupCustomerPoints() {
+  var wa = (document.getElementById('customer-wa').value || '').replace(/[^0-9]/g, '');
+  var poinEl = document.getElementById('customer-poin-display');
+  if (!poinEl) return;
+  if (!wa || wa.length < 6) {
+    poinEl.classList.add('hidden');
+    return;
+  }
+  var contact = lookupCustomerByPhone(wa);
+  if (contact) {
+    var seg = contact.segment || 'Baru';
+    poinEl.innerHTML = '👤 ' + (contact.nama || 'Pelanggan') + ' · 💎 <b>' + (contact.poin || 0) + ' Poin</b> · ' + seg;
+    poinEl.classList.remove('hidden');
+  } else {
+    poinEl.innerHTML = '🆕 Pelanggan baru · dapat <b>' + Math.floor((window._lastTransaction && window._lastTransaction.subtotal || 0) / 1000) + ' Poin</b>';
+    poinEl.classList.remove('hidden');
+  }
 }
 
 // ===== RIWAYAT =====
@@ -870,6 +986,8 @@ function renderRiwayat() {
   var countEl = document.getElementById('riw-count');
   if (!tbody) return;
   if (countEl) countEl.textContent = txns.length + ' transaksi';
+  // Render analytics
+  renderRiwayatAnalytics(txns);
   
   if (txns.length === 0) {
     tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Tidak ada transaksi ditemukan</td></tr>';
@@ -887,6 +1005,165 @@ function renderRiwayat() {
       '<td class="px-4 py-3 text-center">'+(isVoid ? '<span class="text-xs text-red-500">❌ Void</span>' : '<button onclick="voidTransaction(\''+(t.trx_no||t.id)+'\')" class="text-xs text-red-500 hover:text-red-700 hover:underline">↩ Void</button>')+'</td>'+
       '</tr>';
   }).join('');
+}
+
+// ===== RIWAYAT ANALYTICS =====
+function computeRiwayatAnalytics(txns) {
+  var productQty = {};
+  var productRevenue = {};
+  var categoryRevenue = {};
+  var categoryQty = {};
+  var totalRevenue = 0;
+  var totalItems = 0;
+
+  txns.forEach(function(t) {
+    if (t.status === 'void') return;
+    (t.items || []).forEach(function(item) {
+      var name = item.name || 'Unknown';
+      var qty = Number(item.qty) || 0;
+      var price = Number(item.price || item.harga_jual) || 0;
+      var rev = price * qty;
+      productQty[name] = (productQty[name] || 0) + qty;
+      productRevenue[name] = (productRevenue[name] || 0) + rev;
+      totalRevenue += rev;
+      totalItems += qty;
+      // Look up category
+      var cat = 'Umum';
+      if (item.productId && window.ProductDB) {
+        var prod = ProductDB.findProduct(item.productId);
+        if (prod) cat = prod.kategori || prod.golongan || 'Umum';
+      }
+      categoryRevenue[cat] = (categoryRevenue[cat] || 0) + rev;
+      categoryQty[cat] = (categoryQty[cat] || 0) + qty;
+    });
+  });
+
+  var topByQty = Object.entries(productQty).sort(function(a,b) { return b[1] - a[1]; }).slice(0, 10);
+  var topByRevenue = Object.entries(productRevenue).sort(function(a,b) { return b[1] - a[1]; }).slice(0, 10);
+  var topCategories = Object.entries(categoryRevenue).sort(function(a,b) { return b[1] - a[1]; });
+
+  return {
+    topByQty: topByQty,
+    topByRevenue: topByRevenue,
+    topCategories: topCategories,
+    totalRevenue: totalRevenue,
+    totalItems: totalItems
+  };
+}
+
+function renderRiwayatAnalytics(txns) {
+  var container = document.getElementById('riwayat-analytics');
+  if (!container) return;
+  if (txns.length === 0) { container.innerHTML = ''; return; }
+  var analytics = computeRiwayatAnalytics(txns);
+
+  var html = '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">';
+
+  // Top by Qty
+  html += '<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3">';
+  html += '<h4 class="text-xs font-bold mb-2 text-orange-600">🔥 Top Produk (Qty)</h4>';
+  if (analytics.topByQty.length === 0) {
+    html += '<p class="text-xs text-gray-400">-</p>';
+  } else {
+    analytics.topByQty.slice(0, 5).forEach(function(e, i) {
+      html += '<div class="flex justify-between text-xs py-0.5"><span class="truncate mr-1">' + (i+1) + '. ' + e[0] + '</span><span class="font-mono font-bold">' + e[1] + '</span></div>';
+    });
+  }
+  html += '</div>';
+
+  // Top by Revenue
+  html += '<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3">';
+  html += '<h4 class="text-xs font-bold mb-2 text-green-600">💰 Revenue per Produk</h4>';
+  if (analytics.topByRevenue.length === 0) {
+    html += '<p class="text-xs text-gray-400">-</p>';
+  } else {
+    analytics.topByRevenue.slice(0, 5).forEach(function(e, i) {
+      html += '<div class="flex justify-between text-xs py-0.5"><span class="truncate mr-1">' + (i+1) + '. ' + e[0] + '</span><span class="font-mono font-bold">Rp ' + e[1].toLocaleString('id') + '</span></div>';
+    });
+  }
+  html += '</div>';
+
+  // Best Categories
+  html += '<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3">';
+  html += '<h4 class="text-xs font-bold mb-2 text-blue-600">📂 Kategori Terlaris</h4>';
+  if (analytics.topCategories.length === 0) {
+    html += '<p class="text-xs text-gray-400">-</p>';
+  } else {
+    analytics.topCategories.slice(0, 5).forEach(function(e, i) {
+      html += '<div class="flex justify-between text-xs py-0.5"><span class="truncate mr-1">' + (i+1) + '. ' + e[0] + '</span><span class="font-mono font-bold">Rp ' + e[1].toLocaleString('id') + '</span></div>';
+    });
+  }
+  html += '</div>';
+
+  html += '</div>';
+  // Summary line
+  html += '<div class="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-2 px-1">';
+  html += '<span>📦 Total item terjual: <b class="text-gray-700 dark:text-gray-200">' + analytics.totalItems + '</b></span>';
+  html += '<span>💵 Total revenue: <b class="text-gray-700 dark:text-gray-200">Rp ' + analytics.totalRevenue.toLocaleString('id') + '</b></span>';
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ===== CSV EXPORT =====
+function exportRiwayatCSV() {
+  var txns = [];
+  try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
+
+  // Apply same filters as renderRiwayat
+  var start = (document.getElementById('riw-tgl-start')||{}).value || '';
+  var end = (document.getElementById('riw-tgl-end')||{}).value || '';
+  var search = ((document.getElementById('riw-search')||{}).value || '').toLowerCase();
+  var metode = (document.getElementById('riw-metode')||{}).value || '';
+  if (start) { var sd = new Date(start); txns = txns.filter(function(t) { return new Date(t.created_at) >= sd; }); }
+  if (end) { var ed = new Date(end); ed.setHours(23,59,59); txns = txns.filter(function(t) { return new Date(t.created_at) <= ed; }); }
+  if (search) txns = txns.filter(function(t) { return (t.trx_no||t.id||'').toLowerCase().includes(search); });
+  if (metode) txns = txns.filter(function(t) { return t.metode_bayar === metode; });
+
+  if (txns.length === 0) { showToast('⚠️ Tidak ada data untuk diexport'); return; }
+
+  // Build CSV with BOM for Excel compatibility
+  var BOM = '\uFEFF';
+  var headers = ['No. Transaksi', 'Tanggal', 'Item', 'Jumlah Item', 'Total', 'Metode Bayar', 'Status'];
+  var rows = [headers.join(',')];
+
+  txns.forEach(function(t) {
+    var date = new Date(t.created_at);
+    var dateStr = date.getFullYear() + '-' +
+      String(date.getMonth() + 1).padStart(2, '0') + '-' +
+      String(date.getDate()).padStart(2, '0');
+    var itemNames = (t.items || []).map(function(i) { return (i.name || '').replace(/"/g, '""').replace(/,/g, ' '); }).join('; ');
+    var total = t.total || t.subtotal || 0;
+    var row = [
+      '"' + ((t.trx_no || t.id || '').replace(/"/g, '""')) + '"',
+      dateStr,
+      '"' + itemNames + '"',
+      (t.items || []).length,
+      total,
+      (t.metode_bayar || 'tunai').toUpperCase(),
+      t.status === 'void' ? 'VOID' : 'ACTIVE'
+    ];
+    rows.push(row.join(','));
+  });
+
+  var csv = BOM + rows.join('\n');
+
+  // Generate filename with date range
+  var filename = 'riwayat_transaksi';
+  if (start) filename += '_dari_' + start;
+  if (end) filename += '_sampai_' + end;
+  filename += '.csv';
+
+  // Download
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  showToast('✅ CSV diexport: ' + filename);
 }
 
 // FIX: Void transaction — restore stock + mark as void
@@ -1096,7 +1373,10 @@ function processPayment() {
         <option value="">Semua Metode</option><option value="tunai">Tunai</option><option value="qris">QRIS</option><option value="debit_kredit">Debit/Kredit</option><option value="ewallet">E-Wallet</option>
       </select>
       <span class="text-xs text-gray-400" id="riw-count">0 transaksi</span>
+      <button onclick="exportRiwayatCSV()" class="ml-auto px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition" title="Export CSV">📥 CSV</button>
     </div>
+    <!-- Analytics Summary -->
+    <div id="riwayat-analytics"></div>
     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
       <table class="w-full">
         <thead><tr class="bg-gray-50 dark:bg-gray-900 text-xs text-gray-500 dark:text-gray-400"><th class="px-4 py-3 text-left">No. Transaksi</th><th class="px-4 py-3 text-left">Tanggal</th><th class="px-4 py-3 text-left">Item</th><th class="px-4 py-3 text-right">Total</th><th class="px-4 py-3 text-left">Bayar</th><th class="px-4 py-3 text-center">Aksi</th></tr></thead>
@@ -1160,7 +1440,9 @@ function processPayment() {
     <p class="text-2xl font-bold font-mono text-primary mb-4" id="success-total">Rp 0</p>
     <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Pembayaran: <span id="success-method">TUNAI</span></p>
     <!-- Customer WA -->
-    <div class="space-y-2 mb-3"><input type="text" id="customer-name" placeholder="Nama pelanggan (opsional)" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"><input type="text" id="customer-wa" placeholder="No WA — 08xxx..." class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-mono"></div>
+    <div class="space-y-2 mb-3"><input type="text" id="customer-name" placeholder="Nama pelanggan (opsional)" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"><input type="text" id="customer-wa" placeholder="No WA — 08xxx..." oninput="lookupCustomerPoints()" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-mono"></div>
+    <!-- Customer Poin Display -->
+    <div id="customer-poin-display" class="hidden mb-3 py-2 px-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-xs text-green-800 dark:text-green-200 font-medium"></div>
     <div class="grid grid-cols-2 gap-2 mb-3">
       <button onclick="printStruk()" class="py-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600">🖨 Cetak Struk</button>
       <button onclick="kirimDigital()" class="py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">📱 Kirim WA</button>
