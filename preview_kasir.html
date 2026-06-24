@@ -729,14 +729,20 @@ function closeSuccessModal() {
     var cartItems = window._lastTransaction.cart || [];
     if (cartItems.length > 0) {
       var fus = []; try { fus = JSON.parse(localStorage.getItem('apotek_pos_followups')||'[]'); } catch(e) {}
+      // Cari nama canonical dari apotek_kontak (biar linear dgn modul Kontak)
+      var custName = (document.getElementById('customer-name')||{}).value || '';
+      if (!custName) {
+        var kontak = []; try { kontak = JSON.parse(localStorage.getItem('apotek_kontak')||'[]'); } catch(e) {}
+        var found = kontak.find(function(k) { return k.no_hp && k.no_hp.replace(/[^0-9]/g,'') === wa; });
+        custName = found ? found.nama : '';
+      }
       var kerasCount = cartItems.filter(function(c) { return c.category === 'keras'; }).length;
-      // Timing: keras 3 hari, bebas 7 hari, vitamin 14 hari
       var delayDays = kerasCount > 0 ? 3 : 7;
       var fDate = new Date(); fDate.setDate(fDate.getDate() + delayDays);
       var alasan = kerasCount > 0 ? 'Follow-up — obat keras/resep ('+kerasCount+' item)' : 'Follow-up — pembelian obat';
       fus.unshift({
         id:'fu-'+Date.now(),
-        pelanggan: (document.getElementById('customer-name')||{}).value || 'Pelanggan',
+        pelanggan: custName || 'Pelanggan',
         nowa: wa, tanggal: fDate.toISOString().split('T')[0],
         obat: cartItems.map(function(c){return c.name;}).join(', '),
         alasan: alasan,
