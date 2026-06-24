@@ -188,26 +188,26 @@ tailwind.config = {
       <!-- Operasional -->
       <div class="accordion-section">
         <div class="accordion-header flex items-center justify-between px-3 py-2 mx-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" onclick="toggleSection(this)">
-          <span>📂 Operasional</span>
+          <span>📂</span> <span class="nav-text">Operasional</span>
           <span class="accordion-arrow text-[10px]">▼</span>
         </div>
         <div class="accordion-content" style="max-height:200px">
-          <a onclick="openModule('preview_kasir.html','Kasir')" id="menu-kasir" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">💰 Kasir</a>
-          <a onclick="openModule('preview_pelayanan.html','Pelayanan')" id="menu-pelayanan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🧪 Pelayanan</a>
+          <a onclick="openModule('preview_kasir.html','Kasir')" id="menu-kasir" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">💰 <span class="nav-text">Kasir</span></a>
+          <a onclick="openModule('preview_pelayanan.html','Pelayanan')" id="menu-pelayanan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🧪 <span class="nav-text">Pelayanan</span></a>
         </div>
       </div>
 
       <!-- Back Office -->
       <div class="accordion-section" id="backoffice-section">
         <div class="accordion-header flex items-center justify-between px-3 py-2 mx-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" onclick="toggleSection(this)">
-          <span>📂 Back Office</span>
+          <span>📂</span> <span class="nav-text">Back Office</span>
           <span class="accordion-arrow text-[10px]">▼</span>
         </div>
         <div class="accordion-content" style="max-height:400px">
-          <a onclick="openModule('preview_master_data.html','Master Data')" id="menu-master" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📦 Master Data</a>
-          <a onclick="openModule('preview_persediaan.html','Persediaan')" id="menu-persediaan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📊 Persediaan</a>
-          <a onclick="openModule('preview_pembelian.html','Pembelian')" id="menu-pembelian" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📋 Pembelian</a>
-          <a onclick="openModule('preview_kontak.html','Kontak')" id="menu-kontak" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">👥 Kontak</a>
+          <a onclick="openModule('preview_master_data.html','Master Data')" id="menu-master" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📦 <span class="nav-text">Master Data</span></a>
+          <a onclick="openModule('preview_persediaan.html','Persediaan')" id="menu-persediaan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📊 <span class="nav-text">Persediaan</span></a>
+          <a onclick="openModule('preview_pembelian.html','Pembelian')" id="menu-pembelian" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📋 <span class="nav-text">Pembelian</span></a>
+          <a onclick="openModule('preview_kontak.html','Kontak')" id="menu-kontak" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">👥 <span class="nav-text">Kontak</span></a>
           <a onclick="openModule('preview_marketing.html','Marketing')" id="menu-marketing" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📢 Marketing</a>
           <a onclick="openModule('preview_konsinyasi.html','Konsinyasi')" id="menu-konsinyasi" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🤝 Konsinyasi</a>
           <a onclick="openModule('preview_keuangan.html','Keuangan')" id="menu-keuangan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">💵 Keuangan</a>
@@ -217,7 +217,7 @@ tailwind.config = {
       <!-- Keuangan & Pajak -->
       <div class="accordion-section" id="keupajak-section">
         <div class="accordion-header collapsed flex items-center justify-between px-3 py-2 mx-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" onclick="toggleSection(this)">
-          <span>📂 Keuangan & Pajak</span>
+          <span>📂</span> <span class="nav-text">Keuangan & Pajak</span>
           <span class="accordion-arrow text-[10px]">▼</span>
         </div>
         <div class="accordion-content collapsed" style="max-height:200px">
@@ -229,7 +229,7 @@ tailwind.config = {
       <!-- Laporan -->
       <div class="accordion-section" id="laporan-section">
         <div class="accordion-header collapsed flex items-center justify-between px-3 py-2 mx-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" onclick="toggleSection(this)">
-          <span>📂 Laporan</span>
+          <span>📂</span> <span class="nav-text">Laporan</span>
           <span class="accordion-arrow text-[10px]">▼</span>
         </div>
         <div class="accordion-content collapsed" style="max-height:100px">
@@ -410,8 +410,8 @@ tailwind.config = {
       <div class="flex gap-2 mb-4 flex-wrap">
         <button onclick="switchSubTab('laporan','penjualan')" id="subt-laporan-penjualan" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">💰 Penjualan</button>
         <button onclick="switchSubTab('laporan','produk')" id="subt-laporan-produk" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">🔥 Produk Terlaris</button>
-        <button onclick="switchSubTab('laporan','pembelian')" id="subt-laporan-pembelian" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📋 Pembelian</button>
-        <button onclick="switchSubTab('laporan','persediaan')" id="subt-laporan-persediaan" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📊 Persediaan</button>
+        <button onclick="switchSubTab('laporan','pembelian')" id="subt-laporan-pembelian" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📋 <span class="nav-text">Pembelian</span></button>
+        <button onclick="switchSubTab('laporan','persediaan')" id="subt-laporan-persediaan" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📊 <span class="nav-text">Persediaan</span></button>
         <button onclick="switchSubTab('laporan','keuangan')" id="subt-laporan-keuangan" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">💵 Keuangan</button>
         <button onclick="switchSubTab('laporan','kadaluarsa')" id="subt-laporan-kadaluarsa" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">⏰ Kadaluarsa</button>
         <button onclick="switchSubTab('laporan','pelanggan')" id="subt-laporan-pelanggan" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">👥 Pelanggan</button>
@@ -619,7 +619,7 @@ function initHeader() {
 
   document.getElementById('header-name').innerHTML = '💊 ' + profileName;
   document.getElementById('header-outlet').textContent = outlet;
-  const roleLabels = { owner: '👑 Owner', admin: '🏥 Admin (Apoteker)', kasir: '💰 Kasir' };
+  const roleLabels = { owner: '👑 Owner', admin: '🏥 Admin (Apoteker)', kasir: '💰 <span class="nav-text">Kasir</span>' };
   document.getElementById('header-role').textContent = roleLabels[role] || role;
   document.getElementById('header-avatar').textContent = avatar;
   document.getElementById('menu-user-name').textContent = user;
