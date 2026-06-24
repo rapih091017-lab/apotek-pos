@@ -29,19 +29,20 @@ tailwind.config = {
 <style>
   @media print {
     @page { margin: 0; size: 58mm auto; }
-    body { background: white !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    body > :not(#print-area) { display: none !important; }
-    #print-area, #print-area * { visibility: visible !important; }
-    #print-area { display: block !important; position: relative !important; left: 0 !important; top: 0 !important; width: 58mm; font-size: 10px; margin: 0; padding: 2mm; color: black !important; background: white !important; font-family: 'Courier New', monospace !important; line-height: 1.2 !important; }
-    #print-area * { color: black !important; background: transparent !important; }
-    #print-area .print-row { display: flex !important; justify-content: space-between; font-family: 'Courier New', monospace !important; font-size: 10px !important; }
-    #print-area .print-dashed { border-top: 1px dashed #000 !important; margin: 4px 0 !important; }
+    body { background: white !important; margin: 0 !important; padding: 0 !important; }
+    /* Sembunyikan SEMUA elemen kecuali #print-area */
+    body * { display: none !important; }
+    #print-area, #print-area * { display: block !important; visibility: visible !important; }
+    #print-area { position: fixed !important; left: 0 !important; top: 0 !important; width: 58mm !important; font-size: 9px !important; margin: 0 !important; padding: 2mm !important; color: black !important; background: white !important; font-family: 'Courier New', monospace !important; line-height: 1.2 !important; height: auto !important; overflow: visible !important; }
+    #print-area * { color: black !important; background: transparent !important; font-family: 'Courier New', monospace !important; }
+    #print-area .print-row { display: flex !important; justify-content: space-between; font-size: 9px !important; }
+    #print-area .print-dashed { border-top: 1px dashed #000 !important; margin: 2px 0 !important; }
     #print-area .print-center { text-align: center !important; }
     #print-area .print-bold { font-weight: bold !important; }
     #print-area .print-right { text-align: right !important; }
-    #print-area .print-double { border-top: 1px double #000 !important; margin: 4px 0 !important; }
-    #print-area .print-sm { font-size: 9px !important; }
-    #print-area .print-lg { font-size: 12px !important; }
+    #print-area .print-double { border-top: 1px double #000 !important; margin: 2px 0 !important; }
+    #print-area .print-sm { font-size: 8px !important; }
+    #print-area .print-lg { font-size: 11px !important; }
   }
   .product-card { transition: all 150ms ease; }
   .product-card:hover { transform: translateY(-1px); }
@@ -758,14 +759,17 @@ function addResepItem() {
 
 // ===== PRINT & WHATSAPP =====
 function printStruk() {
-  // @media print CSS otomatis menampilkan #print-area & menyembunyikan elemen lain.
-  // Tidak perlu toggle class hidden — biarkan CSS yang bekerja.
   var pa = document.getElementById('print-area');
   if (!pa || !pa.innerHTML.trim()) {
-    showToast('⚠️ Tidak ada struk untuk dicetak');
+    showToast('⚠️ Tidak ada struk untuk dicetak. Selesaikan transaksi dulu.');
     return;
   }
-  window.print();
+  // FIX: Pastikan print-area visible selama print, lalu sembunyikan lagi
+  pa.classList.remove('hidden');
+  setTimeout(function() {
+    window.print();
+    setTimeout(function() { pa.classList.add('hidden'); }, 100);
+  }, 50);
 }
 
 function kirimDigital() {
