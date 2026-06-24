@@ -187,7 +187,28 @@
     if (typeof renderHutangTable === 'function') renderHutangTable();
   };
   
-  // Run immediately to rebind any existing buttons
-  setTimeout(renderPOTable, 500);
+  // Run immediately AND keep scanning for PO buttons
+  setTimeout(renderPOTable, 300);
+  // Fallback: scan every 500ms for first 10 detik — bind any unbound Terima buttons
+  var scanCount = 0;
+  var scanInterval = setInterval(function() {
+    scanCount++;
+    var found = 0;
+    document.querySelectorAll('button, [onclick*="openReceiveForm"]').forEach(function(btn) {
+      var txt = btn.textContent.trim();
+      if (txt === 'Terima' && !btn.dataset.overhauled) {
+        btn.dataset.overhauled = '1';
+        btn.onclick = function(e) { e.stopPropagation(); openReceiveOverhaul(btn); };
+        found++;
+      }
+      if (txt === 'Lihat' && !btn.dataset.overhauledLihat) {
+        btn.dataset.overhauledLihat = '1';
+        btn.onclick = function(e) { e.stopPropagation(); openLihatOverhaul(btn); };
+        found++;
+      }
+    });
+    if (found > 0) console.log('🔧 Pembelian: rebound ' + found + ' buttons');
+    if (scanCount > 20) clearInterval(scanInterval);
+  }, 500);
   console.log('✅ Pembelian overhaul: Terima + Lihat + Total + Confirm ready');
 })();
