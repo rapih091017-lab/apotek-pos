@@ -1382,10 +1382,10 @@ window.addEventListener('message', function(e) {
     // Find and update all KPI number spans in sub-laporan-penjualan
     var penjualanDiv = document.getElementById('sub-laporan-penjualan');
     if (penjualanDiv) {
-      var kpis = penjualanDiv.querySelectorAll('.text-xl');
+      var kpis = penjualanDiv.querySelectorAll('.font-mono.text-xl, .text-xl.font-mono');
       if (kpis[0]) kpis[0].textContent = 'Rp '+totalRevenue.toLocaleString('id');
       if (kpis[1]) kpis[1].textContent = totalTrx;
-      if (kpis[2]) kpis[2].textContent = 'Rp '+(totalTrx>0?Math.round(totalRevenue/30):0).toLocaleString('id');
+      if (kpis[2]) kpis[2].textContent = 'Rp '+(totalTrx>0?Math.round(totalRevenue/Math.max(1,(endDate-startDate)/86400000+1)):0).toLocaleString('id');
       if (kpis[3]) kpis[3].textContent = 'Rp '+avgDay.toLocaleString('id');
       if (kpis[4]) kpis[4].textContent = 'Rp '+totalMargin.toLocaleString('id');
     }
