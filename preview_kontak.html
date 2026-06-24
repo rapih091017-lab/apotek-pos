@@ -375,7 +375,30 @@ document.getElementById('form-overlay').addEventListener('click', function(e) { 
 </script>
 <!-- FIX: Upload & Template Excel handler -->
 <script>
+function renderKontakTable() {
+  var all = []; try { all = JSON.parse(localStorage.getItem('apotek_kontak')||'[]'); } catch(e) {}
+  if (!all.length) return;
+  // Pelanggan table
+  var tbodyP = document.querySelector('#tab-pelanggan table tbody, table tbody');
+  if (tbodyP && tbodyP.parentElement && tbodyP.parentElement.parentElement && tbodyP.parentElement.parentElement.parentElement) {
+    var parent = tbodyP.parentElement.parentElement.parentElement;
+    if (parent.querySelector('thead tr th') && parent.querySelector('thead tr th').textContent.includes('Kode')) {
+      var pelanggan = all.filter(function(k) { return k.tipe !== 'dokter'; });
+      tbodyP.innerHTML = pelanggan.length ? pelanggan.map(function(k, i) {
+        var poin = k.poin || 0;
+        var trx = k.total_trx || 0;
+        var badge = poin >= 100 ? '<span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⭐ Member</span>' : trx > 0 ? '<span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Baru</span>' : '<span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">Biasa</span>';
+        return '<tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">'+(k.kode||'PEL-'+String(i+1).padStart(6,'0'))+'</td><td class="px-4 py-3 font-medium text-sm">'+(k.nama||'Tanpa Nama')+'</td><td class="px-4 py-3 text-xs">'+(k.no_hp||'')+'</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">'+(k.alamat||'')+'</td><td class="px-4 py-3 text-center">'+badge+'</td><td class="px-4 py-3 text-center font-mono text-xs">'+trx+'</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>';
+      }).join('') : '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">🔍 Belum ada data kontak. Transaksi dengan nomor WA akan otomatis muncul.</td></tr>';
+    }
+  }
+}
 document.addEventListener('DOMContentLoaded', function() {
+  // Render dynamic kontak table from localStorage
+  setTimeout(renderKontakTable, 500);
+  // Also re-render when switching tabs
+  document.querySelectorAll('.tab-pill').forEach(function(t) { t.addEventListener('click', function() { setTimeout(renderKontakTable, 100); }); });
+  
   setTimeout(function() {
     // Template download button
     document.querySelectorAll('button').forEach(function(btn) {
