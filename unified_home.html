@@ -1350,14 +1350,18 @@ window.addEventListener('message', function(e) {
   }
   
   // Dynamic Laporan tab — replace hardcoded values with real data
-  function renderLaporan() {
+  window.renderLaporan = function renderLaporan() {
     var txns = []; try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions')||'[]'); } catch(e) {}
     var products = []; try { products = JSON.parse(localStorage.getItem('apotek_products_master')||'[]'); } catch(e) {}
     // Read date filter from Laporan tab inputs
-    var startEl = document.querySelector('#sub-laporan-penjualan input[type="date"]:first-of-type');
-    var endEl = document.querySelector('#sub-laporan-penjualan input[type="date"]:last-of-type');
-    var startDate = startEl ? new Date(startEl.value) : new Date(Date.now()-30*86400000);
-    var endDate = endEl ? new Date(endEl.value) : new Date();
+    var penjualanDiv = document.getElementById('sub-laporan-penjualan');
+    var startDate = new Date(Date.now()-30*86400000);
+    var endDate = new Date();
+    if (penjualanDiv) {
+      var inputs = penjualanDiv.querySelectorAll('input[type="date"]');
+      if (inputs[0] && inputs[0].value) { var d = new Date(inputs[0].value); if (!isNaN(d)) startDate = d; }
+      if (inputs[1] && inputs[1].value) { var d = new Date(inputs[1].value); if (!isNaN(d)) endDate = d; }
+    }
     endDate.setHours(23,59,59);
     // Filter by date range
     var filtered = txns.filter(function(t){
