@@ -80,5 +80,30 @@
       });
     }, 300);
   };
+  // Override calcReceiveTotal — fix broken CSS selector
+  window.calcReceiveTotal = function() {
+    var items = document.querySelectorAll('#receive-slideover .receive-item');
+    var total = 0;
+    var summary = [];
+    items.forEach(function(el) {
+      var cb = el.querySelector('.receive-item-check');
+      if (cb && cb.checked) {
+        var qty = parseInt((el.querySelector('.receive-qty-input')||{}).value) || 0;
+        var price = parseInt((el.querySelector('.receive-price-input')||{}).value) || 0;
+        var name = el.dataset.nama || '';
+        total += qty * price;
+        if (qty > 0) summary.push(qty + ' ' + name);
+      }
+    });
+    // Update via simple DOM traversal
+    var totalCard = document.querySelector('#receive-slideover [class*="bg-orange"]');
+    if (totalCard) {
+      var totalEl = totalCard.querySelector('.text-xl, .font-bold');
+      if (totalEl) totalEl.textContent = 'Rp ' + total.toLocaleString('id');
+      var summaryEl = totalCard.querySelector('.text-xs');
+      if (summaryEl) summaryEl.textContent = summary.join(' + ') || '';
+    }
+  };
+  
   console.log('✅ Pembelian: receive fix hooked to openReceiveForm');
 })();
