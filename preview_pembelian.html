@@ -315,7 +315,7 @@ tailwind.config = {
   </div>
   <div class="flex-1 overflow-y-auto p-5 space-y-4">
     <div class="grid grid-cols-3 gap-3">
-      <div><label class="block text-xs font-medium mb-1">No. Faktur Supplier</label><input type="text" value="INV/2026/0456" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
+      <div><label class="block text-xs font-medium mb-1">No. Faktur Supplier</label><input type="text" id="receive-invoice-no" value="INV/2026/0456" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
       <div><label class="block text-xs font-medium mb-1">Tgl. Faktur</label><input type="date" value="2026-06-19" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
       <div><label class="block text-xs font-medium mb-1">Jatuh Tempo</label><input type="date" value="2026-07-19" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"></div>
     </div>
@@ -1144,7 +1144,9 @@ function applyReturnedStock(items) {
 
 async function confirmReceive() {
   // Build faktur data from DOM
-  const noFaktur = document.querySelector('#receive-slideover input[type="text"]').value;
+  // FIX: Ambil invoice number by ID, bukan first-text-input (bisa batch number)
+  const noFaktur = (document.getElementById('receive-invoice-no') || document.querySelector('#receive-slideover input[type="text"]:last-of-type') || {}).value || '';
+  if (!noFaktur) { showPembToast('⚠️ Isi nomor faktur terlebih dahulu'); return; }
   const tglFaktur = document.querySelectorAll('#receive-slideover input[type="date"]')[0].value;
   
   const itemsDiv = document.querySelectorAll('#receive-slideover .receive-item');
