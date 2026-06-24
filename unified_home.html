@@ -52,7 +52,7 @@ tailwind.config = {
   #global-sidebar { width: var(--sidebar-width); min-width: var(--sidebar-width); transition: width 0.25s ease, min-width 0.25s ease; }
   #global-sidebar[data-state="collapsed"] { width: var(--sidebar-width-icon); min-width: var(--sidebar-width-icon); overflow-x: hidden; }
   #global-sidebar[data-state="collapsed"] .px-4 { padding-left: 0.5rem; padding-right: 0.5rem; }
-  #global-sidebar[data-state="collapsed"] .nav-text, #global-sidebar[data-state="collapsed"] .accordion-content, #global-sidebar[data-state="collapsed"] .accordion-header span:first-child { display: none; }
+  #global-sidebar[data-state="collapsed"] .nav-text, #global-sidebar[data-state="collapsed"] .accordion-content, #global-sidebar[data-state="collapsed"] .accordion-header span, #global-sidebar[data-state="collapsed"] .accordion-arrow { display: none; }
   #global-sidebar[data-state="collapsed"] .sidebar-link { justify-content: center; padding: 0.6rem; position: relative; }
   #global-sidebar[data-state="collapsed"] .sidebar-link:hover::after { content: attr(data-tooltip); position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); background: #1f2937; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; z-index: 100; pointer-events: none; }
   .dark #global-sidebar[data-state="collapsed"] .sidebar-link:hover::after { background: #e5e7eb; color: #111827; }
@@ -133,7 +133,7 @@ tailwind.config = {
       <div class="px-3 py-2 text-sm font-medium" id="menu-user-name">User</div>
       <div class="px-3 py-1 text-xs text-gray-500 dark:text-gray-400" id="menu-user-role">Role</div>
       <hr class="my-1">
-      <button onclick="switchTab('settings')" class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:bg-gray-900 rounded-lg transition cursor-pointer">⚙️ Settings</button>
+      <button onclick="switchTab('settings')" class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:bg-gray-900 rounded-lg transition cursor-pointer">⚙️ <span class="nav-text">Settings</span></button>
       <button onclick="doLogout()" class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:bg-gray-900 rounded-lg transition cursor-pointer text-red-600">🚪 Logout</button>
     </div>
   </div>
@@ -182,8 +182,8 @@ tailwind.config = {
     
     <nav class="flex-1 space-y-0.5">
 
-      <a onclick="switchTab('home')" id="nav-home" class="sidebar-link active flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm cursor-pointer">🏠 Dashboard</a>
-      <a onclick="switchTab('resep')" id="nav-resep" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📋 Input Resep</a>
+      <a onclick="switchTab('home')" id="nav-home" class="sidebar-link active flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm cursor-pointer">🏠 <span class="nav-text">Dashboard</span></a>
+      <a onclick="switchTab('resep')" id="nav-resep" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📋 <span class="nav-text">Input Resep</span></a>
 
       <!-- Operasional -->
       <div class="accordion-section">
@@ -208,9 +208,9 @@ tailwind.config = {
           <a onclick="openModule('preview_persediaan.html','Persediaan')" id="menu-persediaan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📊 <span class="nav-text">Persediaan</span></a>
           <a onclick="openModule('preview_pembelian.html','Pembelian')" id="menu-pembelian" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📋 <span class="nav-text">Pembelian</span></a>
           <a onclick="openModule('preview_kontak.html','Kontak')" id="menu-kontak" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">👥 <span class="nav-text">Kontak</span></a>
-          <a onclick="openModule('preview_marketing.html','Marketing')" id="menu-marketing" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📢 Marketing</a>
-          <a onclick="openModule('preview_konsinyasi.html','Konsinyasi')" id="menu-konsinyasi" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🤝 Konsinyasi</a>
-          <a onclick="openModule('preview_keuangan.html','Keuangan')" id="menu-keuangan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">💵 Keuangan</a>
+          <a onclick="openModule('preview_marketing.html','Marketing')" id="menu-marketing" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📢 <span class="nav-text">Marketing</span></a>
+          <a onclick="openModule('preview_konsinyasi.html','Konsinyasi')" id="menu-konsinyasi" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🤝 <span class="nav-text">Konsinyasi</span></a>
+          <a onclick="openModule('preview_keuangan.html','Keuangan')" id="menu-keuangan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">💵 <span class="nav-text">Keuangan</span></a>
         </div>
       </div>
 
@@ -221,8 +221,8 @@ tailwind.config = {
           <span class="accordion-arrow text-[10px]">▼</span>
         </div>
         <div class="accordion-content collapsed" style="max-height:200px">
-          <a onclick="switchTab('akuntansi')" id="menu-akuntansi" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📖 Akuntansi</a>
-          <a onclick="switchTab('pajak')" id="menu-pajak" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🧾 Pajak</a>
+          <a onclick="switchTab('akuntansi')" id="menu-akuntansi" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📖 <span class="nav-text">Akuntansi</span></a>
+          <a onclick="switchTab('pajak')" id="menu-pajak" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🧾 <span class="nav-text">Pajak</span></a>
         </div>
       </div>
 
@@ -233,15 +233,15 @@ tailwind.config = {
           <span class="accordion-arrow text-[10px]">▼</span>
         </div>
         <div class="accordion-content collapsed" style="max-height:100px">
-          <a onclick="switchTab('laporan')" id="menu-laporan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📈 Semua Laporan</a>
+          <a onclick="switchTab('laporan')" id="menu-laporan" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 ml-4 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">📈 <span class="nav-text">Semua Laporan</span></a>
         </div>
       </div>
 
-      <a onclick="switchTab('settings')" id="nav-settings" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">⚙️ Settings</a>
-      <a onclick="openModule('preview_manajemen.html','Manajemen Pengguna')" id="menu-manajemen" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🛡️ Manajemen Pengguna</a>
+      <a onclick="switchTab('settings')" id="nav-settings" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">⚙️ <span class="nav-text">Settings</span></a>
+      <a onclick="openModule('preview_manajemen.html','Manajemen Pengguna')" id="menu-manajemen" class="sidebar-link flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 cursor-pointer">🛡️ <span class="nav-text">Manajemen Pengguna</span></a>
     </nav>
     <div class="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 dark:text-gray-400">
-      v1.0 · ApotekPOS · Powered by <b>Digicraft</b>
+      <span class="nav-text">v1.0 · ApotekPOS · Powered by <b>Digicraft</b></span>
     </div>
   </aside>
 
@@ -367,7 +367,7 @@ tailwind.config = {
     </div>
 
     <!-- ==================== TAB: SETTINGS ==================== -->
-    <div id="tab-settings" class="hidden p-6"><h1 class="text-xl font-bold mb-1">⚙️ Settings</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Atur profil apotek, outlet, dan preferensi</p>
+    <div id="tab-settings" class="hidden p-6"><h1 class="text-xl font-bold mb-1">⚙️ <span class="nav-text">Settings</span></h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Atur profil apotek, outlet, dan preferensi</p>
       <div class="grid grid-cols-3 gap-4">
         <div class="col-span-2 space-y-4">
           <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 card-shadow"><h3 class="font-semibold mb-4">Informasi Apotek</h3>
@@ -412,7 +412,7 @@ tailwind.config = {
         <button onclick="switchSubTab('laporan','produk')" id="subt-laporan-produk" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">🔥 Produk Terlaris</button>
         <button onclick="switchSubTab('laporan','pembelian')" id="subt-laporan-pembelian" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📋 <span class="nav-text">Pembelian</span></button>
         <button onclick="switchSubTab('laporan','persediaan')" id="subt-laporan-persediaan" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📊 <span class="nav-text">Persediaan</span></button>
-        <button onclick="switchSubTab('laporan','keuangan')" id="subt-laporan-keuangan" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">💵 Keuangan</button>
+        <button onclick="switchSubTab('laporan','keuangan')" id="subt-laporan-keuangan" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">💵 <span class="nav-text">Keuangan</span></button>
         <button onclick="switchSubTab('laporan','kadaluarsa')" id="subt-laporan-kadaluarsa" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">⏰ Kadaluarsa</button>
         <button onclick="switchSubTab('laporan','pelanggan')" id="subt-laporan-pelanggan" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">👥 Pelanggan</button>
       </div>
@@ -429,7 +429,7 @@ tailwind.config = {
     </div>
 
     <!-- ==================== TAB: KEUANGAN (merged) ==================== -->
-    <div id="tab-keuangan" class="hidden p-6"><h1 class="text-xl font-bold mb-1">💵 Keuangan</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Transaksi, utang & piutang usaha</p>
+    <div id="tab-keuangan" class="hidden p-6"><h1 class="text-xl font-bold mb-1">💵 <span class="nav-text">Keuangan</span></h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Transaksi, utang & piutang usaha</p>
       <div class="flex gap-2 mb-4">
         <button onclick="switchSubTab('keuangan','transaksi')" id="subt-keuangan-transaksi" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">💳 Transaksi</button>
         <button onclick="switchSubTab('keuangan','riwayat')" id="subt-keuangan-riwayat" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📋 Riwayat</button>
@@ -445,7 +445,7 @@ tailwind.config = {
     </div>
 
     <!-- ==================== TAB: KONSINYASI (merged) ==================== -->
-    <div id="tab-konsinyasi" class="hidden p-6"><h1 class="text-xl font-bold mb-1">🤝 Konsinyasi</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Barang titipan dari supplier</p>
+    <div id="tab-konsinyasi" class="hidden p-6"><h1 class="text-xl font-bold mb-1">🤝 <span class="nav-text">Konsinyasi</span></h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Barang titipan dari supplier</p>
       <div class="flex gap-2 mb-4">
         <button onclick="switchSubTab('konsinyasi','masuk')" id="subt-konsinyasi-masuk" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">📥 Barang Masuk</button>
         <button onclick="switchSubTab('konsinyasi','stok')" id="subt-konsinyasi-stok" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📦 Stok</button>
@@ -459,7 +459,7 @@ tailwind.config = {
     </div>
 
     <!-- ==================== TAB: AKUNTANSI (merged) ==================== -->
-    <div id="tab-akuntansi" class="hidden p-6"><h1 class="text-xl font-bold mb-1">📖 Akuntansi</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Buku besar, aktiva & daftar akun</p>
+    <div id="tab-akuntansi" class="hidden p-6"><h1 class="text-xl font-bold mb-1">📖 <span class="nav-text">Akuntansi</span></h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Buku besar, aktiva & daftar akun</p>
       <div class="flex gap-2 mb-4">
         <button onclick="switchSubTab('akuntansi','bukubesar')" id="subt-akuntansi-bukubesar" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">📖 Buku Besar</button>
         <button onclick="switchSubTab('akuntansi','aktiva')" id="subt-akuntansi-aktiva" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">🏢 Aktiva Tetap</button>
@@ -471,7 +471,7 @@ tailwind.config = {
     </div>
 
     <!-- ==================== TAB: PAJAK (merged) ==================== -->
-    <div id="tab-pajak" class="hidden p-6"><h1 class="text-xl font-bold mb-1">🧾 Pajak</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">PPN Masukan & Keluaran</p>
+    <div id="tab-pajak" class="hidden p-6"><h1 class="text-xl font-bold mb-1">🧾 <span class="nav-text">Pajak</span></h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">PPN Masukan & Keluaran</p>
       <div class="flex gap-2 mb-4">
         <button onclick="switchSubTab('pajak','masuk')" id="subt-pajak-masuk" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">📥 PPN Masukan</button>
         <button onclick="switchSubTab('pajak','keluar')" id="subt-pajak-keluar" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">📤 PPN Keluaran</button>
@@ -481,7 +481,7 @@ tailwind.config = {
     </div>
 
     <!-- ==================== TAB: MANAJEMEN PENGGUNA (merged) ==================== -->
-    <div id="tab-manajemen" class="hidden p-6"><h1 class="text-xl font-bold mb-1">🛡️ Manajemen Pengguna</h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Akun, outlet, shift, log & hak akses</p>
+    <div id="tab-manajemen" class="hidden p-6"><h1 class="text-xl font-bold mb-1">🛡️ <span class="nav-text">Manajemen Pengguna</span></h1><p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Akun, outlet, shift, log & hak akses</p>
       <div class="flex gap-2 mb-4 flex-wrap">
         <button onclick="switchSubTab('manajemen','pengguna')" id="subt-manajemen-pengguna" class="tab-pill active px-4 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-full text-sm font-medium cursor-pointer card-shadow">👤 Pengguna</button>
         <button onclick="switchSubTab('manajemen','outlet')" id="subt-manajemen-outlet" class="tab-pill px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 rounded-full text-sm font-medium cursor-pointer hover:bg-gray-50 dark:bg-gray-900">🏪 Outlet</button>
