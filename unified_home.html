@@ -1353,9 +1353,20 @@ window.addEventListener('message', function(e) {
   function renderLaporan() {
     var txns = []; try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions')||'[]'); } catch(e) {}
     var products = []; try { products = JSON.parse(localStorage.getItem('apotek_products_master')||'[]'); } catch(e) {}
-    // Penjualan sub-tab: update KPI cards
-    var totalRevenue = txns.filter(function(t){return t.status!=='void'}).reduce(function(s,t){return s+(t.total||t.subtotal||0)},0);
-    var totalTrx = txns.filter(function(t){return t.status!=='void'}).length;
+    // Read date filter from Laporan tab inputs
+    var startEl = document.querySelector('#sub-laporan-penjualan input[type="date"]:first-of-type');
+    var endEl = document.querySelector('#sub-laporan-penjualan input[type="date"]:last-of-type');
+    var startDate = startEl ? new Date(startEl.value) : new Date(Date.now()-30*86400000);
+    var endDate = endEl ? new Date(endEl.value) : new Date();
+    endDate.setHours(23,59,59);
+    // Filter by date range
+    var filtered = txns.filter(function(t){
+      if (t.status==='void') return false;
+      var d = new Date(t.created_at);
+      return d >= startDate && d <= endDate;
+    });
+    var totalRevenue = filtered.reduce(function(s,t){return s+(t.total||t.subtotal||0)},0);
+    var totalTrx = filtered.length;
     var avgDay = totalTrx > 0 ? Math.round(totalRevenue / Math.max(1, totalTrx)) : 0;
     var totalMargin = txns.filter(function(t){return t.status!=='void'}).reduce(function(s,t){
       return s + (t.items||[]).reduce(function(ss,i){
