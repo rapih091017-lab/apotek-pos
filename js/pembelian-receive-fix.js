@@ -123,6 +123,9 @@
       var se = card.querySelector('.text-xs');
       if (se) se.textContent = summary.join(' + ') || '';
     }
+    // Sync "Dibayar" field with total
+    var dibayarEl = document.getElementById('receive-dibayar') || document.querySelector('#receive-slideover input[placeholder*="bayar"], #receive-slideover input[placeholder*="Dibayar"]');
+    if (dibayarEl) dibayarEl.value = total;
   };
   
   // ===== CONFIRM =====
@@ -155,11 +158,13 @@
     
     // Save invoice
     var total = items.reduce(function(s, i) { return s + i.subtotal; }, 0);
+    var dibayarEl = document.getElementById('receive-dibayar') || document.querySelector('#receive-slideover input[placeholder*="bayar"]');
+    var dibayar = dibayarEl ? (parseInt(dibayarEl.value) || total) : total;
     var faktur = {
       id: 'faktur_' + Date.now(), nomor: noFaktur, supplier: supplier,
       tanggal: new Date().toISOString().split('T')[0],
       tanggal_jatuh_tempo: new Date(Date.now() + 30*86400000).toISOString().split('T')[0],
-      items: items, total: total, dibayar: 0, status: 'DITERIMA', po_ref: poNo
+      items: items, total: total, dibayar: dibayar, status: dibayar >= total ? 'LUNAS' : 'DITERIMA', po_ref: poNo
     };
     var invoices = [];
     try { invoices = JSON.parse(localStorage.getItem('apotek_purchase_invoices') || '[]'); } catch(e) {}
