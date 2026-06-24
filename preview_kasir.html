@@ -52,6 +52,7 @@ tailwind.config = {
   @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
   .skeleton { animation: pulse-slow 1.8s ease infinite; }
+  @media (max-width:768px){ .cart-panel{position:fixed!important;right:0;top:56px;bottom:0;z-index:45;width:100vw!important;max-width:360px;transform:translateX(100%);transition:transform 0.25s ease} .cart-panel:not(.collapsed){transform:translateX(0)} .product-area{flex:1 1 100%!important} }
 </style>
 
 <script>

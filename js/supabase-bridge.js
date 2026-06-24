@@ -398,6 +398,25 @@ window.ApotekDB = (function() {
     logout: logout
   };
 
+  // ===== SAFE STORAGE HELPER =====
+  function safeSetItem(key, value) {
+    try { localStorage.setItem(key, value); return true; }
+    catch(e) {
+      if (e.name === 'QuotaExceededError') {
+        // Evict oldest data: clear transactions older than 90 days
+        try {
+          var txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]');
+          var cutoff = Date.now() - 90*86400000;
+          txns = txns.filter(function(t) { return new Date(t.created_at).getTime() > cutoff; });
+          localStorage.setItem('apotek_pos_transactions', JSON.stringify(txns));
+          localStorage.setItem(key, value);
+          return true;
+        } catch(e2) { return false; }
+      }
+      return false;
+    }
+  }
+
   // ===== SUPABASE → LOCALSTORAGE SYNC =====
   function syncFromSupabase() {
     if (!isSupabase()) return;
