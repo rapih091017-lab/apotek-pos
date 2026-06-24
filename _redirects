@@ -1,1 +1,3 @@
-/*    /index.html   200
+# Netlify redirects — static HTML site
+/login.html    /login.html    200
+/unified_home.html    /unified_home.html    200
