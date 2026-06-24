@@ -1368,10 +1368,15 @@ window.addEventListener('message', function(e) {
     var totalRevenue = filtered.reduce(function(s,t){return s+(t.total||t.subtotal||0)},0);
     var totalTrx = filtered.length;
     var avgDay = totalTrx > 0 ? Math.round(totalRevenue / Math.max(1, totalTrx)) : 0;
-    var totalMargin = txns.filter(function(t){return t.status!=='void'}).reduce(function(s,t){
+    var totalPengeluaran = 0;
+    var totalMargin = filtered.reduce(function(s,t){
       return s + (t.items||[]).reduce(function(ss,i){
         var prod = products.find(function(p){return(p.kode||p.id)===(i.productId||i.kode)});
-        return ss + ((i.price||0)-(prod?prod.harga_beli||0:0))*(i.qty||1);
+        var beli = prod ? (prod.harga_beli||0) : 0;
+        var jual = i.price||0;
+        var qty = i.qty||1;
+        totalPengeluaran += beli * qty;
+        return ss + (jual - beli) * qty;
       },0);
     },0);
     // Find and update all KPI number spans in sub-laporan-penjualan
@@ -1384,9 +1389,17 @@ window.addEventListener('message', function(e) {
       if (kpis[3]) kpis[3].textContent = 'Rp '+avgDay.toLocaleString('id');
       if (kpis[4]) kpis[4].textContent = 'Rp '+totalMargin.toLocaleString('id');
     }
+    // Update Keuangan sub-tab
+    var keuanganDiv = document.getElementById('sub-keuangan-transaksi');
+    if (keuanganDiv) {
+      var kkpis = keuanganDiv.querySelectorAll('.card-shadow .text-xl');
+      if (kkpis[0]) kkpis[0].textContent = 'Rp '+totalRevenue.toLocaleString('id'); // Saldo Kas ≈ total revenue
+      if (kkpis[1]) kkpis[1].textContent = 'Rp '+totalRevenue.toLocaleString('id'); // Pemasukan
+      if (kkpis[2]) kkpis[2].textContent = 'Rp '+totalPengeluaran.toLocaleString('id'); // Pengeluaran
+    }
     // Produk sub-tab: update table with real top products
     var prodCounts = {};
-    txns.filter(function(t){return t.status!=='void'}).forEach(function(t){
+    filtered.forEach(function(t){
       (t.items||[]).forEach(function(i){ prodCounts[i.name||''] = (prodCounts[i.name||'']||0)+(i.qty||1); });
     });
     var topProducts = Object.entries(prodCounts).sort(function(a,b){return b[1]-a[1]}).slice(0,5);
