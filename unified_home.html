@@ -824,7 +824,13 @@ function refreshDashboard() {
 }
 
 // ===== CSV EXPORT =====
-function exportLaporanCSV() {
+function downloadCSV(h, r, f) { var B='\uFEFF',c=B+h.join(',')+'\n'+r.map(function(x){return x.map(function(y){return '"'+(y||'').toString().replace(/"/g,'""')+'"'}).join(',')}).join('\n'); var b=new Blob([c],{type:'text/csv;charset=utf-8;'}),u=URL.createObjectURL(b),a=document.createElement('a'); a.href=u;a.download=f;a.click();URL.revokeObjectURL(u);showToast('📥 '+f); }
+function exportLaporanCSV() { downloadCSV(['Metrik','Nilai'],[['Penjualan',(document.getElementById('kpi-penjualan')||{}).textContent||'-'],['Keuntungan',(document.getElementById('kpi-keuntungan')||{}).textContent||'-'],['Transaksi',(document.getElementById('kpi-transaksi')||{}).textContent||'-']],'laporan_'+new Date().toISOString().slice(0,10)+'.csv'); }
+function exportProductsCSV() { var p=[]; try{p=JSON.parse(localStorage.getItem('apotek_products_master')||'[]')}catch(e){} if(!p.length){showToast('⚠️ Tidak ada produk');return} downloadCSV(['Kode','Nama','Golongan','Beli','Jual','Stok','Min','Aktif'],p.map(function(x){return[x.kode||x.id||'',x.nama_dagang||'',x.golongan||'',x.harga_beli||0,x.harga_jual||0,x.stok||0,x.stok_minimum||5,x.is_aktif!==false?'Ya':'Tidak']}),'produk_'+new Date().toISOString().slice(0,10)+'.csv'); }
+function exportTransaksiCSV() { var t=[]; try{t=JSON.parse(localStorage.getItem('apotek_pos_transactions')||'[]')}catch(e){} if(!t.length){showToast('⚠️ Tidak ada transaksi');return} downloadCSV(['No','Tanggal','Item','Total','Metode','Customer'],t.map(function(x){return[x.trx_no||x.id,new Date(x.created_at).toLocaleString('id'),(x.items||[]).length,x.total||x.subtotal||0,x.metode_bayar||'',x.customer_name||x.customer_wa||'']}),'transaksi_'+new Date().toISOString().slice(0,10)+'.csv'); }
+// Legacy wrapper
+var _origExportLaporanCSV = exportLaporanCSV;
+function _oldExportLaporanCSV() {
   const activeSub = document.querySelector('#tab-laporan .sub-content:not(.hidden)');
   if (!activeSub) { showToast('⚠️ Pilih sub-tab laporan dulu'); return; }
   const subId = activeSub.id.replace('sub-laporan-','');
