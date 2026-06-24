@@ -574,7 +574,13 @@ async function finishTransaction() {
 // Bersihin emoji dari struk — thermal printer gak support
   var cleanText = function(s) { 
     if (typeof s !== 'string') return s;
-    return s.replace(/[\uD800-\uDFFF\u{1F000}-\u{1FFFF}\u{200D}\u{FE0F}]/gu, '').replace(/[^\x00-\x7F\u00C0-\u024F\s.,;:!?()\-_\/@#$%&*+=]/g, '');
+    var out = '';
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charCodeAt(i);
+      // Keep: printable ASCII (32-126) + newline(10) + carriage-return(13) + Latin-ext (192-591)
+      if ((c >= 32 && c <= 126) || c === 10 || c === 13 || (c >= 192 && c <= 591)) out += s.charAt(i);
+    }
+    return out;
   };
   
   document.getElementById('print-area').innerHTML = `
