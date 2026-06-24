@@ -1253,6 +1253,7 @@ window.addEventListener('message', function(e) {
   window.switchTab = function(tab) {
     _origSwitchTab(tab);
     if (tab === 'home') { setTimeout(updateDashboardKPIs, 150); setTimeout(render7DayChart, 300); setTimeout(renderTopCustomers, 350); }
+    if (tab === 'laporan') { setTimeout(renderLaporan, 200); }
   };
   // Refresh chart + customers when transaction data changes (cross-tab sync)
   window.addEventListener('storage', function(e) {
@@ -1346,6 +1347,44 @@ window.addEventListener('message', function(e) {
         '<div class="text-xs"><span class="font-mono font-bold">'+c.count+'</span> transaksi</div>'+
         '</div>';
     }).join('');
+  }
+  
+  // Dynamic Laporan tab — replace hardcoded values with real data
+  function renderLaporan() {
+    var txns = []; try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions')||'[]'); } catch(e) {}
+    var products = []; try { products = JSON.parse(localStorage.getItem('apotek_products_master')||'[]'); } catch(e) {}
+    // Penjualan sub-tab: update KPI cards
+    var totalRevenue = txns.filter(function(t){return t.status!=='void'}).reduce(function(s,t){return s+(t.total||t.subtotal||0)},0);
+    var totalTrx = txns.filter(function(t){return t.status!=='void'}).length;
+    var avgDay = totalTrx > 0 ? Math.round(totalRevenue / Math.max(1, totalTrx)) : 0;
+    var totalMargin = txns.filter(function(t){return t.status!=='void'}).reduce(function(s,t){
+      return s + (t.items||[]).reduce(function(ss,i){
+        var prod = products.find(function(p){return(p.kode||p.id)===(i.productId||i.kode)});
+        return ss + ((i.price||0)-(prod?prod.harga_beli||0:0))*(i.qty||1);
+      },0);
+    },0);
+    // Find and update all KPI number spans in sub-laporan-penjualan
+    var penjualanDiv = document.getElementById('sub-laporan-penjualan');
+    if (penjualanDiv) {
+      var kpis = penjualanDiv.querySelectorAll('.text-xl');
+      if (kpis[0]) kpis[0].textContent = 'Rp '+totalRevenue.toLocaleString('id');
+      if (kpis[1]) kpis[1].textContent = totalTrx;
+      if (kpis[2]) kpis[2].textContent = 'Rp '+(totalTrx>0?Math.round(totalRevenue/30):0).toLocaleString('id');
+      if (kpis[3]) kpis[3].textContent = 'Rp '+avgDay.toLocaleString('id');
+      if (kpis[4]) kpis[4].textContent = 'Rp '+totalMargin.toLocaleString('id');
+    }
+    // Produk sub-tab: update table with real top products
+    var prodCounts = {};
+    txns.filter(function(t){return t.status!=='void'}).forEach(function(t){
+      (t.items||[]).forEach(function(i){ prodCounts[i.name||''] = (prodCounts[i.name||'']||0)+(i.qty||1); });
+    });
+    var topProducts = Object.entries(prodCounts).sort(function(a,b){return b[1]-a[1]}).slice(0,5);
+    var produkTable = document.querySelector('#sub-laporan-produk table tbody');
+    if (produkTable && topProducts.length) {
+      produkTable.innerHTML = topProducts.map(function(e,i){
+        return '<tr class="border-b border-gray-100 row-hover"><td class="px-4 py-3 font-bold text-primary">'+(i+1)+'</td><td class="px-4 py-3 font-medium">'+e[0]+'</td><td class="px-4 py-3">-</td><td class="px-4 py-3 font-mono">'+e[1]+'</td><td class="px-4 py-3 font-mono">-</td><td class="px-4 py-3 font-mono text-green-700">-</td></tr>';
+      }).join('');
+    }
   }
 })();
 </script>
