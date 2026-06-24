@@ -725,6 +725,25 @@ function closeSuccessModal() {
   var wa = (document.getElementById('customer-wa').value || '').replace(/[^0-9]/g, '');
   if (wa && window._lastTransaction) {
     autoSaveContact(wa, window._lastTransaction.subtotal, (document.getElementById('customer-name')||{}).value || '');
+    // AUTO-FOLLOW-UP: setiap transaksi dgn nomor WA → follow-up otomatis
+    var cartItems = window._lastTransaction.cart || [];
+    if (cartItems.length > 0) {
+      var fus = []; try { fus = JSON.parse(localStorage.getItem('apotek_pos_followups')||'[]'); } catch(e) {}
+      var kerasCount = cartItems.filter(function(c) { return c.category === 'keras'; }).length;
+      // Timing: keras 3 hari, bebas 7 hari, vitamin 14 hari
+      var delayDays = kerasCount > 0 ? 3 : 7;
+      var fDate = new Date(); fDate.setDate(fDate.getDate() + delayDays);
+      var alasan = kerasCount > 0 ? 'Follow-up — obat keras/resep ('+kerasCount+' item)' : 'Follow-up — pembelian obat';
+      fus.unshift({
+        id:'fu-'+Date.now(),
+        pelanggan: (document.getElementById('customer-name')||{}).value || 'Pelanggan',
+        nowa: wa, tanggal: fDate.toISOString().split('T')[0],
+        obat: cartItems.map(function(c){return c.name;}).join(', '),
+        alasan: alasan,
+        status: 'pending', catatan: 'Auto dari transaksi ' + (window._lastTransaction.trxNo||''), template_id:''
+      });
+      localStorage.setItem('apotek_pos_followups', JSON.stringify(fus));
+    }
   }
   document.getElementById('success-modal').classList.add('hidden');
   // Hide poin display for next transaction

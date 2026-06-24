@@ -227,6 +227,7 @@ tailwind.config = {
 <div id="form-slideover" class="hidden fixed right-0 top-0 z-50 h-full w-[500px] max-w-[95vw] bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
   <div class="p-5 border-b border-gray-100 flex items-center justify-between">
     <h3 class="text-lg font-bold" id="form-title">Tambah Pelanggan</h3>
+    <input type="hidden" id="form-edit-id" value="">
     <button onclick="closeContactForm()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition cursor-pointer">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
     </button>
@@ -300,6 +301,24 @@ function openContactForm(tipe, nama) {
   document.getElementById('form-overlay').classList.remove('hidden');
   document.getElementById('form-slideover').classList.remove('hidden');
   document.getElementById('form-title').textContent = nama ? ('Edit: ' + nama) : (tipe === 'pelanggan' ? 'Tambah Pelanggan' : 'Tambah Dokter');
+  // Load existing data from localStorage
+  var contacts = []; try { contacts = JSON.parse(localStorage.getItem('apotek_kontak')||'[]'); } catch(e) {}
+  var existing = nama ? contacts.find(function(c) { return c.nama === nama || c.kode === nama; }) : null;
+  document.getElementById('form-edit-id').value = existing ? existing.id : '';
+  // Pre-fill fields
+  var inputs = document.querySelectorAll('#form-slideover input');
+  inputs.forEach(function(inp) {
+    var ph = inp.placeholder || '';
+    if (!inp.readOnly && existing) {
+      if (ph.includes('Nama')) inp.value = existing.nama || '';
+      else if (ph.includes('08')) inp.value = existing.no_hp || '';
+      else if (inp.type === 'email') inp.value = existing.email || '';
+    } else if (!inp.readOnly && !existing) {
+      if (ph.includes('Nama') && nama) inp.value = nama;
+    }
+  });
+  var ta = document.querySelector('#form-slideover textarea');
+  if (ta) ta.value = existing ? (existing.alamat || '') : '';
   document.getElementById('extra-fields').classList.toggle('hidden', tipe !== 'pelanggan');
   document.getElementById('dokter-fields').classList.toggle('hidden', tipe !== 'dokter');
 }
@@ -353,7 +372,7 @@ document.getElementById('form-overlay').addEventListener('click', function(e) { 
   saveContact = function() {
     var tipe = (document.getElementById('form-title').textContent || '').includes('Dokter') ? 'dokter' : 'pelanggan';
     var inputs = document.querySelectorAll('#form-slideover input');
-    var nama = '', nohp = '', email = '', alamat = '', kode = '';
+    var nama = '', nohp = '', email = '', alamat = '', kode = '', editId = '';
     inputs.forEach(function(inp) {
       var ph = inp.placeholder || '';
       if (inp.readOnly) kode = inp.value;
@@ -361,14 +380,32 @@ document.getElementById('form-overlay').addEventListener('click', function(e) { 
       else if (ph.includes('08')) nohp = inp.value.trim();
       else if (inp.type === 'email') email = inp.value.trim();
     });
+    // Read edit ID from hidden field
+    var editEl = document.getElementById('form-edit-id');
+    if (editEl) editId = editEl.value;
     var ta = document.querySelector('#form-slideover textarea');
     if (ta) alamat = ta.value.trim();
     if (!nama) { showToast('⚠️ Nama wajib diisi'); return; }
     var contacts = [];
     try { contacts = JSON.parse(localStorage.getItem('apotek_kontak') || '[]'); } catch(e) {}
-    contacts.unshift({ id:'kontak-'+Date.now(), tipe:tipe, kode:kode, nama:nama, no_hp:nohp, email:email, alamat:alamat, created_at:new Date().toISOString() });
+    if (editId) {
+      // UPDATE existing
+      contacts = contacts.map(function(c) {
+        if (c.id === editId) { c.nama = nama; c.no_hp = nohp; c.email = email; c.alamat = alamat; c.tipe = tipe; }
+        return c;
+      });
+    } else {
+      // CREATE new (only if no existing with same phone)
+      var exists = contacts.find(function(c) { return c.no_hp && nohp && c.no_hp.replace(/[^0-9]/g,'') === nohp.replace(/[^0-9]/g,''); });
+      if (exists) {
+        exists.nama = nama; exists.email = email; exists.alamat = alamat; exists.tipe = tipe;
+      } else {
+        contacts.unshift({ id:'kontak-'+Date.now(), tipe:tipe, kode:kode, nama:nama, no_hp:nohp, email:email, alamat:alamat, created_at:new Date().toISOString() });
+      }
+    }
     localStorage.setItem('apotek_kontak', JSON.stringify(contacts));
     closeContactForm();
+    if (typeof renderKontakTable === 'function') setTimeout(renderKontakTable, 100);
     showToast('💾 Data kontak tersimpan');
   };
 })();
@@ -388,7 +425,8 @@ function renderKontakTable() {
         var poin = k.poin || 0;
         var trx = k.total_trx || 0;
         var badge = poin >= 100 ? '<span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⭐ Member</span>' : trx > 0 ? '<span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Baru</span>' : '<span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">Biasa</span>';
-        return '<tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">'+(k.kode||'PEL-'+String(i+1).padStart(6,'0'))+'</td><td class="px-4 py-3 font-medium text-sm">'+(k.nama||'Tanpa Nama')+'</td><td class="px-4 py-3 text-xs">'+(k.no_hp||'')+'</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">'+(k.alamat||'')+'</td><td class="px-4 py-3 text-center">'+badge+'</td><td class="px-4 py-3 text-center font-mono text-xs">'+trx+'</td><td class="px-4 py-3 text-right"><button class="text-accent hover:underline text-xs">Edit</button></td></tr>';
+        var escNama = (k.nama||'').replace(/'/g,"\\'");
+        return '<tr class="row-hover cursor-pointer"><td class="px-4 py-3 font-mono text-xs">'+(k.kode||'PEL-'+String(i+1).padStart(6,'0'))+'</td><td class="px-4 py-3 font-medium text-sm">'+(k.nama||'Tanpa Nama')+'</td><td class="px-4 py-3 text-xs">'+(k.no_hp||'')+'</td><td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">'+(k.alamat||'')+'</td><td class="px-4 py-3 text-center">'+badge+'</td><td class="px-4 py-3 text-center font-mono text-xs">'+trx+'</td><td class="px-4 py-3 text-right"><button onclick="openContactForm(\''+(k.tipe||'pelanggan')+'\',\''+escNama+'\')" class="text-accent hover:underline text-xs">Edit</button></td></tr>';
       }).join('') : '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">🔍 Belum ada data kontak. Transaksi dengan nomor WA akan otomatis muncul.</td></tr>';
     }
   }
