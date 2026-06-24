@@ -1259,6 +1259,8 @@ window.addEventListener('message', function(e) {
     if (!container || container.id === 'chart-7days-initialized') return;
     container.id = 'chart-7days-initialized';
     container.classList.add('gap-1');
+    container.style.height = '120px';
+    container.style.alignItems = 'flex-end';
     var txns = []; try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
     var days = [];
     for (var i = 6; i >= 0; i--) {
