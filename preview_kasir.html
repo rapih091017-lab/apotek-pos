@@ -1154,65 +1154,7 @@ function exportRiwayatCSV() {
   var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'riwayat_'+tgl1+'_sampai_'+tgl2+'.csv'; a.click();
   showToast('📥 CSV terdownload: '+filtered.length+' transaksi');
-  return; } function _oldExportCSV() {
-  var txns = [];
-  try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
-
-  // Apply same filters as renderRiwayat
-  var start = (document.getElementById('riw-tgl-start')||{}).value || '';
-  var end = (document.getElementById('riw-tgl-end')||{}).value || '';
-  var search = ((document.getElementById('riw-search')||{}).value || '').toLowerCase();
-  var metode = (document.getElementById('riw-metode')||{}).value || '';
-  if (start) { var sd = new Date(start); txns = txns.filter(function(t) { return new Date(t.created_at) >= sd; }); }
-  if (end) { var ed = new Date(end); ed.setHours(23,59,59); txns = txns.filter(function(t) { return new Date(t.created_at) <= ed; }); }
-  if (search) txns = txns.filter(function(t) { return (t.trx_no||t.id||'').toLowerCase().includes(search); });
-  if (metode) txns = txns.filter(function(t) { return t.metode_bayar === metode; });
-
-  if (txns.length === 0) { showToast('⚠️ Tidak ada data untuk diexport'); return; }
-
-  // Build CSV with BOM for Excel compatibility
-  var BOM = '\uFEFF';
-  var headers = ['No. Transaksi', 'Tanggal', 'Item', 'Jumlah Item', 'Total', 'Metode Bayar', 'Status'];
-  var rows = [headers.join(',')];
-
-  txns.forEach(function(t) {
-    var date = new Date(t.created_at);
-    var dateStr = date.getFullYear() + '-' +
-      String(date.getMonth() + 1).padStart(2, '0') + '-' +
-      String(date.getDate()).padStart(2, '0');
-    var itemNames = (t.items || []).map(function(i) { return (i.name || '').replace(/"/g, '""').replace(/,/g, ' '); }).join('; ');
-    var total = t.total || t.subtotal || 0;
-    var row = [
-      '"' + ((t.trx_no || t.id || '').replace(/"/g, '""')) + '"',
-      dateStr,
-      '"' + itemNames + '"',
-      (t.items || []).length,
-      total,
-      (t.metode_bayar || 'tunai').toUpperCase(),
-      t.status === 'void' ? 'VOID' : 'ACTIVE'
-    ];
-    rows.push(row.join(','));
-  });
-
-  var csv = BOM + rows.join('\n');
-
-  // Generate filename with date range
-  var filename = 'riwayat_transaksi';
-  if (start) filename += '_dari_' + start;
-  if (end) filename += '_sampai_' + end;
-  filename += '.csv';
-
-  // Download
-  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  var url = URL.createObjectURL(blob);
-  var link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  showToast('✅ CSV diexport: ' + filename);
+  return;
 }
 
 // FIX: Void transaction — restore stock + mark as void
