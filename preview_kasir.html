@@ -1155,7 +1155,7 @@ function exportRiwayatCSV() {
   var blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'riwayat_'+tgl1+'_sampai_'+tgl2+'.csv'; a.click();
-  showToast('📥 CSV terdownload: '+filtered.length+' transaksi');
+  showToast(' terdownload: '+filtered.length+' transaksi');
   return;
 }
 
@@ -1366,7 +1366,7 @@ function processPayment() {
         <option value="">Semua Metode</option><option value="tunai">Tunai</option><option value="qris">QRIS</option><option value="debit_kredit">Debit/Kredit</option><option value="ewallet">E-Wallet</option>
       </select>
       <span class="text-xs text-gray-400" id="riw-count">0 transaksi</span>
-      <button onclick="exportRiwayatCSV()" class="ml-auto px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition" title="Export CSV">📥 CSV</button>
+      
     </div>
     <!-- Analytics Summary -->
     <div id="riwayat-analytics"></div>
