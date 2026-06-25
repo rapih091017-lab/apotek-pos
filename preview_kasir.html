@@ -1013,8 +1013,8 @@ function renderRiwayat() {
   var countEl = document.getElementById('riw-count');
   if (!tbody) return;
   if (countEl) countEl.textContent = txns.length + ' transaksi';
-  // Render analytics
-  renderRiwayatAnalytics(txns);
+  // Render analytics (safe — jangan block tabel kalau error)
+  try { renderRiwayatAnalytics(txns); } catch(e) {}
   
   if (txns.length === 0) {
     tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Tidak ada transaksi ditemukan</td></tr>';
