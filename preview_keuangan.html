@@ -151,15 +151,15 @@ function getInvoices() {
 function autoGenerateJurnal() {
   var txns = getTransactions();
   var jurnal = getJurnal();
-  var existingIds = jurnal.map(function(j) { return j.source_id; });
+  // Hapus dulu semua jurnal auto (sales/revenue) — regenerate fresh
+  jurnal = jurnal.filter(function(j) { return j.source_type !== 'sales' && j.source_type !== 'revenue'; });
   
   txns.forEach(function(t) {
-    if (existingIds.indexOf(t.id || t.trx_no) === -1) {
       // Debit: Kas (pemasukan)
       jurnal.push({
         id: 'jrl-'+Date.now()+'-'+Math.random().toString(36).substr(2,4),
         tanggal: (t.created_at || new Date().toISOString()).split('T')[0],
-        deskripsi: 'Penjualan - ' + ((t.items||[]).map(function(i){return i.name||i.nama||'';}).filter(Boolean).slice(0,3).join(', ') || (t.trx_no || t.id),
+        deskripsi: 'Penjualan - ' + ((t.items||[]).map(function(i){return i.name||i.nama||'';}).filter(Boolean).slice(0,3).join(', ') || (t.trx_no || t.id)),
         source_type: 'sales',
         source_id: t.id || t.trx_no,
         debit: t.total || t.subtotal || 0,
@@ -169,13 +169,12 @@ function autoGenerateJurnal() {
       jurnal.push({
         id: 'jrl-'+Date.now()+'-'+Math.random().toString(36).substr(2,4),
         tanggal: (t.created_at || new Date().toISOString()).split('T')[0],
-        deskripsi: 'Pendapatan Penjualan - ' + ((t.items||[]).map(function(i){return i.name||i.nama||'';}).filter(Boolean).slice(0,3).join(', ') || (t.trx_no || t.id),
+        deskripsi: 'Pendapatan Penjualan - ' + ((t.items||[]).map(function(i){return i.name||i.nama||'';}).filter(Boolean).slice(0,3).join(', ') || (t.trx_no || t.id)),
         source_type: 'revenue',
         source_id: t.id || t.trx_no,
         debit: 0,
         credit: t.total || t.subtotal || 0
       });
-    }
   });
   saveJurnal(jurnal);
 }
