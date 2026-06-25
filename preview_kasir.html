@@ -2,7 +2,10 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#15803D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Preview — Kasir Apotek POS</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="js/supabase-bridge.js"></script>
@@ -39,14 +42,17 @@ tailwind.config = {
     #print-area .print-dashed { border-top: 1px dashed #000 !important; margin: 2px 0 !important; }
     #print-area .print-center { text-align: center !important; }
     #print-area .print-bold { font-weight: bold !important; }
-    #print-area .print-right { text-align: right !important; }
+    #print-area .print-right { margin-left: auto !important; white-space: nowrap !important; }
     #print-area .print-double { border-top: 1px double #000 !important; margin: 2px 0 !important; }
     #print-area .print-sm { font-size: 8px !important; }
     #print-area .print-lg { font-size: 11px !important; }
+    #print-area .print-truncate { max-width: 26mm !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
   }
-  .product-card { transition: all 150ms ease; }
-  .product-card:hover { transform: translateY(-1px); }
-  .product-card:active { transform: scale(0.98); }
+  .product-card { transition: all 150ms ease; cursor: pointer; }
+  .product-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255,90,31,0.12); border-color: #FF5A1F; }
+  .dark .product-card:hover { box-shadow: 0 8px 25px rgba(255,90,31,0.25); border-color: #FF5A1F; }
+  .product-card:active { transform: scale(0.97); }
+  .product-card:focus-visible { outline: 2px solid #FF5A1F; outline-offset: 2px; border-radius: 0.75rem; }
   .cart-enter { animation: slideIn 200ms ease; }
   .cart-panel { transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease, opacity 0.25s ease, border-width 0.25s ease; }
   .cart-panel.collapsed { width: 0 !important; min-width: 0 !important; padding: 0 !important; overflow: hidden; opacity: 0; border-width: 0 !important; }
@@ -141,14 +147,14 @@ function renderProducts() {
   }
   const grid = document.getElementById('product-grid');
   if (filtered.length === 0) {
-    grid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">Tidak ada produk ditemukan</div>';
+    grid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400 dark:text-gray-500">Tidak ada produk ditemukan</div>';
     return;
   }
   grid.innerHTML = filtered.map(p => `
     <div class="product-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 cursor-pointer card-shadow" onclick="addToCart('${p.id}')">
       <div class="flex items-center gap-2 mb-1">
         <span class="text-xl">${p.image || '💊'}</span>
-        <span class="text-xs px-1.5 py-0.5 rounded font-medium ${p.category==='keras'?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}">${p.golongan||p.category||'bebas'}</span>
+        <span class="text-xs px-1.5 py-0.5 rounded font-medium ${p.category==='keras'?'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400':'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}">${p.golongan||p.category||'bebas'}</span>
       </div>
       <p class="font-semibold text-sm leading-tight">${p.nama_dagang}</p>
       <p class="text-xs text-gray-500 dark:text-gray-400">${p.nama_generik||''}</p>
@@ -163,10 +169,10 @@ function renderProducts() {
 function setKategori(kat, el) {
   document.querySelectorAll('.kategori-btn').forEach(b => {
     b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white');
-    b.classList.add('bg-white','dark:bg-gray-800','border','border-gray-300');
+    b.classList.add('bg-white','dark:bg-gray-800','border','border-gray-300','dark:border-gray-600');
   });
   el.classList.add('bg-orange-accent','dark:bg-orange-600','text-white');
-  el.classList.remove('bg-white','dark:bg-gray-800','border','border-gray-300');
+  el.classList.remove('bg-white','dark:bg-gray-800','border','border-gray-300','dark:border-gray-600');
   renderProducts();
 }
 
@@ -439,18 +445,18 @@ function renderCart() {
   
   tbody.innerHTML = cart.map((c, i) => `
     <tr class="cart-enter row-hover">
-      <td class="px-3 py-2 text-xs font-medium">${c.name}${c.isResep ? ' 🏥' : ''}</td>
+      <td class="px-3 py-2 text-xs font-medium dark:text-gray-200">${c.name}${c.isResep ? ' 🏥' : ''}</td>
       <td class="px-3 py-2 text-xs text-center">
-        <button onclick="updateCartQty(${i}, -1)" class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-bold">−</button>
+        <button onclick="updateCartQty(${i}, -1)" class="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-bold leading-none select-none">−</button>
         <input type="number" min="1" max="99" value="${c.qty}"
           onchange="setCartQty(${i}, this)"
           onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault();}"
-          class="w-12 text-center mx-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-xs font-mono dark:text-white"
-          style="appearance:textfield;-moz-appearance:textfield;" />
-        <button onclick="updateCartQty(${i}, 1)" class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-bold">+</button>
+          class="w-12 text-center mx-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-xs font-mono dark:text-white"
+          style="appearance:textfield;-moz-appearance:textfield;-webkit-appearance:textfield;" />
+        <button onclick="updateCartQty(${i}, 1)" class="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-bold leading-none select-none">+</button>
       </td>
-      <td class="px-3 py-2 text-xs font-mono text-right">Rp ${(c.price * c.qty).toLocaleString('id')}</td>
-      <td class="px-2 py-2 text-center"><button onclick="removeFromCart(${i})" class="text-red-400 hover:text-red-600 text-xs">✕</button></td>
+      <td class="px-3 py-2 text-xs font-mono text-right dark:text-gray-200">Rp ${(c.price * c.qty).toLocaleString('id')}</td>
+      <td class="px-2 py-2 text-center"><button onclick="removeFromCart(${i})" class="w-7 h-7 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-red-400 hover:text-red-600 text-sm font-bold leading-none select-none" title="Hapus">✕</button></td>
     </tr>
   `).join('');
   
@@ -473,7 +479,7 @@ function openPaymentModal() {
   document.getElementById('tunai-received').value = '';
   document.getElementById('change-amount').textContent = 'Rp 0';
   document.getElementById('change-amount').classList.remove('text-red-600', 'text-green-600');
-  document.querySelectorAll('.payment-method-btn').forEach(b => b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white'));
+  document.querySelectorAll('.payment-method-btn').forEach(b => b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white','ring-2','ring-orange-accent'));
   document.getElementById('tunai-input').classList.add('hidden');
   document.getElementById('nontunai-input').classList.add('hidden');
   // Auto-select remembered payment method
@@ -502,11 +508,11 @@ function selectPaymentMethod(method, el) {
   selectedPaymentMethod = method;
   selectedEwallet = null;
   document.querySelectorAll('.payment-method-btn').forEach(b => {
-    b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white');
-    b.classList.add('bg-white','dark:bg-gray-800','border','border-gray-300');
+    b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white','ring-2','ring-orange-accent');
+    b.classList.add('bg-white','dark:bg-gray-800','border','border-gray-300','dark:border-gray-600');
   });
-  el.classList.add('bg-orange-accent','dark:bg-orange-600','text-white');
-  el.classList.remove('bg-white','dark:bg-gray-800','border','border-gray-300');
+  el.classList.add('bg-orange-accent','dark:bg-orange-600','text-white','ring-2','ring-orange-accent');
+  el.classList.remove('bg-white','dark:bg-gray-800','border','border-gray-300','dark:border-gray-600');
   
   document.getElementById('tunai-input').classList.toggle('hidden', method !== 'tunai');
   document.getElementById('nontunai-input').classList.toggle('hidden', method === 'tunai');
@@ -516,8 +522,8 @@ function selectPaymentMethod(method, el) {
   
   // Reset ewallet sub-buttons
   document.querySelectorAll('.ewallet-sub-btn').forEach(b => {
-    b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white');
-    b.classList.add('bg-white','dark:bg-gray-800','border','border-gray-300');
+    b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white','ring-2','ring-orange-accent');
+    b.classList.add('bg-white','dark:bg-gray-800','border','border-gray-300','dark:border-gray-600');
   });
   
   // Reset checkbox
@@ -529,13 +535,14 @@ function selectPaymentMethod(method, el) {
 
 function selectEwallet(wallet, el) {
   selectedEwallet = wallet;
-  document.querySelectorAll('.ewallet-sub-btn').forEach(b => b.classList.remove('border-accent', 'bg-sky-50', 'border-2'));
+  document.querySelectorAll('.ewallet-sub-btn').forEach(b => b.classList.remove('bg-orange-accent','dark:bg-orange-600','text-white','ring-2','ring-orange-accent'));
   // FIX: :contains() is jQuery-only, invalid in vanilla JS. Use data attribute.
   const walletLabels = { gopay: 'GoPay', ovo: 'OVO', dana: 'DANA' };
   const targetLabel = walletLabels[wallet] || '';
   document.querySelectorAll('.ewallet-sub-btn').forEach(b => {
     if (b.textContent.trim() === targetLabel) {
-      b.classList.add('border-accent', 'bg-sky-50', 'border-2');
+      b.classList.add('bg-orange-accent','dark:bg-orange-600','text-white','ring-2','ring-orange-accent');
+      b.classList.remove('bg-white','dark:bg-gray-800','border','border-gray-300','dark:border-gray-600');
     }
   });
   checkFinishEnabled();
@@ -599,8 +606,8 @@ async function finishTransaction() {
   const itemRows = cart.map(c => {
     const sub = c.qty * c.price;
     return `
-      <div class="print-row"><span>${c.name}</span></div>
-      <div class="print-row print-sm">  ${c.qty} x ${c.price.toLocaleString('id-ID')} = <span class="print-right">${sub.toLocaleString('id-ID')}</span></div>
+      <div class="print-row"><span class="print-truncate">${c.name}</span></div>
+      <div class="print-row print-sm"><span>  ${c.qty} x ${c.price.toLocaleString('id-ID')}</span><span class="print-right">${sub.toLocaleString('id-ID')}</span></div>
     `;
   }).join('');
 
@@ -859,6 +866,22 @@ function kirimDigital() {
   });
 }
 
+// ===== TAB SWITCH =====
+function switchTab(tab) {
+  var panel = document.getElementById('riwayat-panel');
+  var btnKasir = document.getElementById('tab-kasir');
+  var btnRiwayat = document.getElementById('tab-riwayat');
+  if (tab === 'kasir') {
+    if (panel) panel.classList.add('hidden');
+    if (btnKasir) { btnKasir.className = 'flex-1 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-lg text-xs font-medium'; }
+    if (btnRiwayat) { btnRiwayat.className = 'flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-medium'; }
+  } else {
+    if (panel) { panel.classList.remove('hidden'); renderRiwayat(); }
+    if (btnKasir) { btnKasir.className = 'flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-medium'; }
+    if (btnRiwayat) { btnRiwayat.className = 'flex-1 py-1.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-xs font-medium'; }
+  }
+}
+
 // ===== UTILS =====
 function showToast(msg) {
   const toast = document.getElementById('toast');
@@ -1017,7 +1040,7 @@ function renderRiwayat() {
   try { renderRiwayatAnalytics(txns); } catch(e) {}
   
   if (txns.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Tidak ada transaksi ditemukan</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400 dark:text-gray-500">Tidak ada transaksi ditemukan</td></tr>';
     return;
   }
   var display = txns.slice(0, 50);
@@ -1133,8 +1156,8 @@ function renderRiwayatAnalytics(txns) {
 
 // ===== CSV EXPORT =====
 function exportRiwayatCSV() {
-  var tgl1 = (document.getElementById('riwayat-start')||{}).value || new Date().toISOString().split('T')[0];
-  var tgl2 = (document.getElementById('riwayat-end')||{}).value || new Date().toISOString().split('T')[0];
+  var tgl1 = (document.getElementById('riw-tgl-start')||{}).value || new Date().toISOString().split('T')[0];
+  var tgl2 = (document.getElementById('riw-tgl-end')||{}).value || new Date().toISOString().split('T')[0];
   var txns = []; try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions')||'[]'); } catch(e) {}
   var filtered = txns.filter(function(t) { var d = (t.created_at||'').split('T')[0]; return d >= tgl1 && d <= tgl2; });
   var BOM = '\uFEFF';
@@ -1225,7 +1248,7 @@ function processPayment() {
 <header class="sticky top-0 z-40 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 card-shadow">
   <div class="flex items-center gap-3">
     <span class="text-lg font-bold text-primary font-mono" id="kasir-header-name">💊 ApotekPOS</span>
-    <select class="text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-gray-900 dark:text-gray-100">
+    <select class="text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-accent outline-none">
       <option>Outlet Pusat</option>
     </select>
   </div>
@@ -1278,7 +1301,7 @@ function processPayment() {
       <h4 class="text-sm font-semibold mb-2">📜 Riwayat Shift</h4>
       <div id="shift-history-list" class="text-xs space-y-1 max-h-40 overflow-y-auto"></div>
     </div>
-    <button onclick="toggleShiftDialog()" class="w-full mt-2 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:bg-gray-900">Tutup</button>
+    <button onclick="toggleShiftDialog()" class="w-full mt-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-200">Tutup</button>
   </div>
 </div>
 
@@ -1288,7 +1311,7 @@ function processPayment() {
     <h3 class="text-lg font-bold mb-2">🔒 Validasi Apoteker</h3>
     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Obat golongan keras memerlukan validasi Apoteker/Admin.</p>
     <button onclick="confirmValidasi()" class="w-full py-2.5 bg-orange-accent text-white rounded-lg text-sm font-bold mb-2">✅ Validasi & Lanjutkan</button>
-    <button onclick="closeValidasiDialog()" class="w-full py-2 border border-gray-300 rounded-lg text-sm">Batal</button>
+    <button onclick="closeValidasiDialog()" class="w-full py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-200">Batal</button>
   </div>
 </div>
 
@@ -1300,15 +1323,15 @@ function processPayment() {
     <div class="mb-4 space-y-3">
       <input type="text" id="search-input" placeholder="🔍 Cari produk (nama/kode)..." class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-orange-accent outline-none">
       <div class="flex gap-2 flex-wrap">
-        <button class="kategori-btn bg-orange-accent dark:bg-orange-600 text-white px-3 py-1.5 rounded-full text-xs font-medium" data-kategori="semua" onclick="setKategori('semua',this)">Semua</button>
-        <button class="kategori-btn bg-white dark:bg-gray-800 border border-gray-300 px-3 py-1.5 rounded-full text-xs font-medium" data-kategori="bebas" onclick="setKategori('bebas',this)">Obat Bebas</button>
-        <button class="kategori-btn bg-white dark:bg-gray-800 border border-gray-300 px-3 py-1.5 rounded-full text-xs font-medium" data-kategori="keras" onclick="setKategori('keras',this)">Obat Keras</button>
-        <button class="kategori-btn bg-white dark:bg-gray-800 border border-gray-300 px-3 py-1.5 rounded-full text-xs font-medium" data-kategori="vitamin" onclick="setKategori('vitamin',this)">Vitamin</button>
+        <button class="kategori-btn bg-orange-accent dark:bg-orange-600 text-white px-4 py-2 rounded-full text-xs font-medium" data-kategori="semua" onclick="setKategori('semua',this)">Semua</button>
+        <button class="kategori-btn bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-full text-xs font-medium" data-kategori="bebas" onclick="setKategori('bebas',this)">Obat Bebas</button>
+        <button class="kategori-btn bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-full text-xs font-medium" data-kategori="keras" onclick="setKategori('keras',this)">Obat Keras</button>
+        <button class="kategori-btn bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-full text-xs font-medium" data-kategori="vitamin" onclick="setKategori('vitamin',this)">Vitamin</button>
       </div>
     </div>
     <!-- Product Grid -->
     <div id="product-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-      <div class="col-span-full text-center py-12 text-gray-400 skeleton">Memuat produk...</div>
+      <div class="col-span-full text-center py-12 text-gray-400 dark:text-gray-500 skeleton">Memuat produk...</div>
     </div>
   </div>
 
@@ -1327,7 +1350,7 @@ function processPayment() {
     <div class="flex-1 overflow-y-auto">
       <table class="w-full text-sm">
         <tbody id="cart-body">
-          <tr><td colspan="4" class="px-4 py-12 text-center text-gray-400 text-xs">Keranjang kosong</td></tr>
+          <tr><td colspan="4" class="px-4 py-12 text-center text-gray-400 dark:text-gray-500 text-xs">Keranjang kosong</td></tr>
         </tbody>
       </table>
     </div>
@@ -1342,8 +1365,8 @@ function processPayment() {
       </button>
       <!-- Tabs: Kasir | Riwayat -->
       <div class="flex gap-1 pt-1">
-        <button class="flex-1 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-lg text-xs font-medium" onclick="document.getElementById('riwayat-panel').classList.add('hidden'); this.parentElement.querySelector('.riwayat-tab-btn').classList.remove('bg-orange-accent','text-white'); this.classList.add('bg-green-100','text-green-800')">💰 Kasir</button>
-        <button class="riwayat-tab-btn flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-medium" onclick="var p=document.getElementById('riwayat-panel'); p.classList.toggle('hidden'); if(!p.classList.contains('hidden'))renderRiwayat(); this.classList.toggle('bg-orange-accent');this.classList.toggle('text-white');">📋 Riwayat</button>
+        <button id="tab-kasir" class="flex-1 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-lg text-xs font-medium" onclick="switchTab('kasir')">💰 Kasir</button>
+        <button id="tab-riwayat" class="flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-medium" onclick="switchTab('riwayat')">📋 Riwayat</button>
       </div>
     </div>
   </div>
@@ -1354,7 +1377,7 @@ function processPayment() {
   <div class="max-w-4xl mx-auto p-6">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-bold">📋 Riwayat Transaksi</h2>
-      <button onclick="document.getElementById('riwayat-panel').classList.add('hidden')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600">← Kembali ke Kasir</button>
+      <button onclick="switchTab('kasir')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600">← Kembali ke Kasir</button>
     </div>
     <!-- Filter Bar -->
     <div class="flex flex-wrap items-center gap-2 mb-3 bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
@@ -1366,13 +1389,13 @@ function processPayment() {
         <option value="">Semua Metode</option><option value="tunai">Tunai</option><option value="qris">QRIS</option><option value="debit_kredit">Debit/Kredit</option><option value="ewallet">E-Wallet</option>
       </select>
       <span class="text-xs text-gray-400" id="riw-count">0 transaksi</span>
-      
+      <button onclick="exportRiwayatCSV()" class="ml-auto px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition">📥 Export CSV</button>
     </div>
     <!-- Analytics Summary -->
     <div id="riwayat-analytics"></div>
     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden card-shadow">
       <table class="w-full">
-        <thead><tr class="bg-gray-50 dark:bg-gray-900 text-xs text-gray-500 dark:text-gray-400"><th class="px-4 py-3 text-left">No. Transaksi</th><th class="px-4 py-3 text-left">Tanggal</th><th class="px-4 py-3 text-left">Item</th><th class="px-4 py-3 text-right">Total</th><th class="px-4 py-3 text-left">Bayar</th><th class="px-4 py-3 text-center">Aksi</th></tr></thead>
+        <thead><tr class="bg-gray-50 dark:bg-gray-900 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"><th class="px-4 py-3 text-left">No. Transaksi</th><th class="px-4 py-3 text-left">Tanggal</th><th class="px-4 py-3 text-left">Item</th><th class="px-4 py-3 text-right">Total</th><th class="px-4 py-3 text-left">Bayar</th><th class="px-4 py-3 text-center">Aksi</th></tr></thead>
         <tbody id="riwayat-table-body"></tbody>
       </table>
     </div>
@@ -1389,10 +1412,10 @@ function processPayment() {
     </div>
     <!-- Payment Methods -->
     <div class="grid grid-cols-2 gap-2 mb-4">
-      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('tunai',this)">💵 Tunai</button>
-      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('qris',this)">📱 QRIS</button>
-      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('debit_kredit',this)">💳 Debit/Kredit</button>
-      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('ewallet',this)">📲 E-Wallet</button>
+      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('tunai',this)">💵 Tunai</button>
+      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('qris',this)">📱 QRIS</button>
+      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('debit_kredit',this)">💳 Debit/Kredit</button>
+      <button class="payment-method-btn bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-3 rounded-xl text-sm font-medium hover:border-orange-accent transition" onclick="selectPaymentMethod('ewallet',this)">📲 E-Wallet</button>
     </div>
     <!-- Tunai Input -->
     <div id="tunai-input" class="hidden mb-4">
@@ -1411,36 +1434,39 @@ function processPayment() {
       <div id="ewallet-select" class="hidden mt-3">
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Pilih E-Wallet:</p>
         <div class="grid grid-cols-3 gap-2">
-          <button class="ewallet-sub-btn bg-white dark:bg-gray-800 border border-gray-300 p-2 rounded-lg text-xs font-medium" onclick="selectEwallet('gopay',this)">GoPay</button>
-          <button class="ewallet-sub-btn bg-white dark:bg-gray-800 border border-gray-300 p-2 rounded-lg text-xs font-medium" onclick="selectEwallet('ovo',this)">OVO</button>
-          <button class="ewallet-sub-btn bg-white dark:bg-gray-800 border border-gray-300 p-2 rounded-lg text-xs font-medium" onclick="selectEwallet('dana',this)">DANA</button>
+          <button class="ewallet-sub-btn bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-2 rounded-lg text-xs font-medium hover:border-orange-accent transition" onclick="selectEwallet('gopay',this)">GoPay</button>
+          <button class="ewallet-sub-btn bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-2 rounded-lg text-xs font-medium hover:border-orange-accent transition" onclick="selectEwallet('ovo',this)">OVO</button>
+          <button class="ewallet-sub-btn bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-2 rounded-lg text-xs font-medium hover:border-orange-accent transition" onclick="selectEwallet('dana',this)">DANA</button>
         </div>
       </div>
     </div>
-    <button id="btn-finish" onclick="processPayment()" disabled class="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+    <button id="btn-finish" onclick="processPayment()" disabled class="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-green-600">
       ✅ Selesaikan Transaksi
     </button>
-    <button onclick="closePaymentModal()" class="w-full mt-2 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:bg-gray-900">Batal</button>
+    <button onclick="closePaymentModal()" class="w-full mt-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-200">Batal</button>
   </div>
 </div>
 
 <!-- ===== SUCCESS MODAL ===== -->
 <div id="success-modal" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center">
-  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center animate-[slideIn_200ms_ease]">
     <div class="text-4xl mb-3">✅</div>
     <h3 class="text-lg font-bold mb-1">Transaksi Berhasil</h3>
     <p class="text-sm text-gray-500 dark:text-gray-400 mb-2" id="success-trx-no">#TRX-000</p>
     <p class="text-2xl font-bold font-mono text-primary mb-4" id="success-total">Rp 0</p>
-    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Pembayaran: <span id="success-method">TUNAI</span></p>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Pembayaran: <span id="success-method" class="font-semibold text-orange-accent">TUNAI</span></p>
     <!-- Customer WA -->
-    <div class="space-y-2 mb-3"><input type="text" id="customer-name" placeholder="Nama pelanggan (opsional)" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"><input type="text" id="customer-wa" placeholder="No WA — 08xxx..." oninput="lookupCustomerPoints()" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-mono"></div>
-    <!-- Customer Poin Display -->
-    <div id="customer-poin-display" class="hidden mb-3 py-2 px-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-xs text-green-800 dark:text-green-200 font-medium"></div>
-    <div class="grid grid-cols-2 gap-2 mb-3">
-      <button onclick="printStruk()" class="py-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600">🖨 Cetak Struk</button>
-      <button onclick="kirimDigital()" class="py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">📱 Kirim WA</button>
+    <div class="space-y-2 mb-3">
+      <input type="text" id="customer-name" placeholder="Nama pelanggan (opsional)" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:ring-2 focus:ring-orange-accent outline-none">
+      <input type="text" id="customer-wa" placeholder="No WA — 08xxx..." oninput="lookupCustomerPoints()" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-mono focus:ring-2 focus:ring-orange-accent outline-none">
     </div>
-    <button onclick="closeSuccessModal()" class="w-full py-2.5 bg-orange-accent dark:bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700">💰 Transaksi Baru</button>
+    <!-- Customer Poin Display -->
+    <div id="customer-poin-display" class="hidden mb-3 py-2.5 px-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-xs text-green-800 dark:text-green-200 font-medium"></div>
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <button onclick="printStruk()" class="py-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition">🖨 Cetak Struk</button>
+      <button onclick="kirimDigital()" class="py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition">📱 Kirim WA</button>
+    </div>
+    <button onclick="closeSuccessModal()" class="w-full py-3 bg-orange-accent dark:bg-orange-600 text-white rounded-xl text-sm font-bold hover:bg-orange-700 transition">💰 Transaksi Baru</button>
   </div>
 </div>
 
