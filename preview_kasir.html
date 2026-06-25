@@ -1131,6 +1131,30 @@ function renderRiwayatAnalytics(txns) {
 
 // ===== CSV EXPORT =====
 function exportRiwayatCSV() {
+  var tgl1 = (document.getElementById('riwayat-start')||{}).value || new Date().toISOString().split('T')[0];
+  var tgl2 = (document.getElementById('riwayat-end')||{}).value || new Date().toISOString().split('T')[0];
+  var txns = []; try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions')||'[]'); } catch(e) {}
+  var filtered = txns.filter(function(t) { var d = (t.created_at||'').split('T')[0]; return d >= tgl1 && d <= tgl2; });
+  var BOM = '\uFEFF';
+  var rows = [['Tanggal','No Transaksi','Produk','Qty','Total','Metode','Customer']];
+  filtered.forEach(function(t) {
+    var items = (t.items||[]).map(function(i) { return (i.name||i.nama||'')+' x'+(i.qty||1); }).join('; ');
+    rows.push([
+      (t.created_at||'').split('T')[0],
+      t.trx_no||t.id||'',
+      items,
+      (t.items||[]).reduce(function(s,i){return s+(i.qty||0);},0),
+      t.total||t.subtotal||0,
+      t.metode_bayar||'',
+      t.customer_name||t.customer_wa||''
+    ]);
+  });
+  var csv = BOM + rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'riwayat_'+tgl1+'_sampai_'+tgl2+'.csv'; a.click();
+  showToast('📥 CSV terdownload: '+filtered.length+' transaksi');
+  return; } function _oldExportCSV() {
   var txns = [];
   try { txns = JSON.parse(localStorage.getItem('apotek_pos_transactions') || '[]'); } catch(e) {}
 
@@ -1386,7 +1410,7 @@ function processPayment() {
   <div class="max-w-4xl mx-auto p-6">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-bold">📋 Riwayat Transaksi</h2>
-      <button onclick="document.getElementById('riwayat-panel').classList.add('hidden')" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:bg-gray-900">✕</button>
+      <button onclick="document.getElementById('riwayat-panel').classList.add('hidden')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600">← Kembali ke Kasir</button>
     </div>
     <!-- Filter Bar -->
     <div class="flex flex-wrap items-center gap-2 mb-3 bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
