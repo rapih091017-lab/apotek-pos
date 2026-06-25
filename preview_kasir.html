@@ -779,6 +779,8 @@ function addResepItem() {
   renderCart();
   renderProducts();
   updatePaymentButton();
+  // Preload riwayat data — siap tampil saat user klik 📋 Riwayat
+  setTimeout(function() { if (typeof renderRiwayat === 'function') renderRiwayat(); }, 300);
   showToast('Resep ditambahkan ke keranjang');
 }
 
@@ -1341,7 +1343,7 @@ function processPayment() {
       <!-- Tabs: Kasir | Riwayat -->
       <div class="flex gap-1 pt-1">
         <button class="flex-1 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-lg text-xs font-medium" onclick="document.getElementById('riwayat-panel').classList.add('hidden'); this.parentElement.querySelector('.riwayat-tab-btn').classList.remove('bg-orange-accent','text-white'); this.classList.add('bg-green-100','text-green-800')">💰 Kasir</button>
-        <button class="riwayat-tab-btn flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-medium" onclick="document.getElementById('riwayat-panel').classList.remove('hidden'); renderRiwayat(); this.classList.add('bg-orange-accent','text-white');">📋 Riwayat</button>
+        <button class="riwayat-tab-btn flex-1 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-medium" onclick="var p=document.getElementById('riwayat-panel'); p.classList.toggle('hidden'); if(!p.classList.contains('hidden'))renderRiwayat(); this.classList.toggle('bg-orange-accent');this.classList.toggle('text-white');">📋 Riwayat</button>
       </div>
     </div>
   </div>
@@ -1476,6 +1478,8 @@ function processPayment() {
   }
   renderProducts();
   updatePaymentButton();
+  // Preload riwayat data — siap tampil saat user klik 📋 Riwayat
+  setTimeout(function() { if (typeof renderRiwayat === 'function') renderRiwayat(); }, 300);
   // Update payment total when cart changes
   setInterval(() => {
     const subtotal = cart.reduce((sum,c) => sum + c.price * c.qty, 0);
