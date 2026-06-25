@@ -611,9 +611,14 @@ function openModule(url, title) {
     const el = document.getElementById('tab-'+t);
     if (el) el.classList.add('hidden');
   });
-  document.getElementById('tab-module').classList.remove('hidden');
+  var tabMod = document.getElementById('tab-module');
+  var iframe = document.getElementById('module-iframe');
+  tabMod.classList.remove('hidden');
   document.getElementById('module-title').textContent = title || 'Modul';
-  document.getElementById('module-iframe').src = url;
+  // Tampilkan spinner sementara
+  iframe.style.opacity = '0';
+  iframe.src = url;
+  iframe.onload = function() { iframe.style.opacity = '1'; };
   document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
   document.querySelectorAll('.sidebar-link').forEach(l => {
     if (l.textContent.trim().includes(title)) l.classList.add('active');
@@ -1281,7 +1286,9 @@ window.addEventListener('message', function(e) {
   document.addEventListener('DOMContentLoaded', function() { 
     setTimeout(updateDashboardKPIs, 500); 
     setTimeout(render7DayChart, 800); 
-    setTimeout(renderTopCustomers, 1000); 
+    setTimeout(renderTopCustomers, 1000);
+    // Preload Kasir di background — biar instant pas dibuka
+    setTimeout(function() { var p = document.createElement('iframe'); p.src = 'preview_kasir.html'; p.style.cssText = 'display:none'; document.body.appendChild(p); }, 2000);
   });
   window.addEventListener('storage', function(e) {
     if (e.key === 'apotek_pos_transactions' || e.key === 'apotek_products_master') updateDashboardKPIs();

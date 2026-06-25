@@ -1358,9 +1358,9 @@ function processPayment() {
     </div>
     <!-- Filter Bar -->
     <div class="flex flex-wrap items-center gap-2 mb-3 bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
-      <input type="date" id="riw-tgl-start" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" onchange="renderRiwayat()">
+      <input type="date" id="riw-tgl-start" value="2026-06-01" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" onchange="renderRiwayat()">
       <span class="text-xs text-gray-400">s/d</span>
-      <input type="date" id="riw-tgl-end" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" onchange="renderRiwayat()">
+      <input type="date" id="riw-tgl-end" value="2026-12-31" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" onchange="renderRiwayat()">
       <input type="text" id="riw-search" placeholder="Cari no.transaksi..." class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" oninput="renderRiwayat()">
       <select id="riw-metode" class="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" onchange="renderRiwayat()">
         <option value="">Semua Metode</option><option value="tunai">Tunai</option><option value="qris">QRIS</option><option value="debit_kredit">Debit/Kredit</option><option value="ewallet">E-Wallet</option>
